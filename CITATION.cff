@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use this work, please cite it as below."
+type: preprint
+title: "Dynamic Longest Palindromic Substring via Mergeable Palindrome Summaries: A Tight Θ(log³ N) Account within the Treap Framework"
+authors:
+  - family-names: "Liu"
+    given-names: "Chengde"
+date-released: "2026-11-20"
+license: "CC-BY-4.0"
+abstract: >-
+  We study the dynamic longest palindromic substring problem under point update,
+  range reversal, range cyclic shift, insertion and deletion, with whole-string
+  and interval LPS queries. Inside a Treap with mergeable palindrome summaries,
+  we establish O(log^3 N) worst-case cost with high probability, expected
+  O(log^2 N) on random inputs, and prove that the three logarithmic factors are
+  individually necessary within the framework. The paper also records withdrawn
+  claims, lower bounds for the AP count and batch LCE, verification results, and
+  an analysis of the distinct-palindrome extension.
+keywords:
+  - dynamic strings
+  - longest palindromic substring
+  - Treap
+  - arithmetic progressions
+  - LCE
+  - data structures

@@ -1,0 +1,40 @@
+{
+  "root": "\\\\WIN-N4FEVL58PKV\\st29$\\win7-agent-v2.3\\workspace\\palindrome_diff",
+  "source_sha256": {
+    "fast_candidate.cpp": "485a44ac64265efd7d4d7290680421c8d102ed2cc44c0ec8aba6199b8281e024",
+    "brute_checker.cpp": "e3d3bed4ea56967f77c21a7d88373d290da0a7b202c51cf152bb288c64fe2144",
+    "gen_random.cpp": "a47c4ab30dda6c318113553dfa4e910966167da15526ac32600bca2afa7484e1",
+    "stress.cpp": "a950bbdbcd5d7a1fabc66d5eb872ecb6300bbe76c6b3771d388bceaf385da286",
+    "run_tests.py": "18011c85c42d0259b59e2ff921efe7a6564de968b8be3c27a3e2ac8902eac49c",
+    "replay_saved.py": "ef5297e563ef48e13ece2a0798210b1f4b95dbbcc54a653dfa0eaf9a38b69406",
+    "audit_results.py": "d7d096b1596a5d4f6b972a414d37deb82399a835fffe39367fc3b4a34973458a"
+  },
+  "file_cases": 60,
+  "file_query_answers": 24440,
+  "max_n": 200000,
+  "max_updates": 10000,
+  "three_way_cases": 52,
+  "default_query_answers": 601,
+  "stress": [
+    {
+      "seed": 9137,
+      "trials": 120,
+      "checks": 33358,
+      "updates": 33112
+    },
+    {
+      "seed": 19871,
+      "trials": 150,
+      "checks": 37888,
+      "updates": 37612
+    },
+    {
+      "seed": 27183,
+      "trials": 12,
+      "checks": 17050,
+      "updates": 16912
+    }
+  ],
+  "stress_checks": 88296,
+  "current_source_verified_for_all_saved_cases": true
+}

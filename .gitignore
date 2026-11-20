@@ -1,0 +1,27 @@
+# build products
+*.exe
+*.o
+*.obj
+*.out
+*.aux
+*.log
+*.toc
+*.synctex.gz
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# scratch / archives
+.tmp_extract/
+*.zip
+*.rar
+ab19_raw.txt
