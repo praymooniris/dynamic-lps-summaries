@@ -6,7 +6,7 @@ PSuf(AB) merge table of merge_proof.md section 6.
 Written from the statements in the notes, NOT from the repo implementation,
 so that a shared bug would show up as a disagreement.
 """
-import itertools, random
+import itertools, random, sys
 
 def is_pal(s): return s == s[::-1]
 def lcp(a, b):
@@ -139,14 +139,13 @@ def audit_merge(pairs):
 
 if __name__ == "__main__":
     rnd = random.Random(99)
-    small = ["".join(c) for L in range(1, 15)
-             for c in itertools.product("ab", repeat=L)] if False else []
+    small = []
     strs = []
     for L in range(1, 15):
         for c in itertools.product("ab", repeat=L): strs.append("".join(c))
-    lay, bad = audit_lemma1(strs)
+    lay, lemma1_bad = audit_lemma1(strs)
     print(f"(a) Lemma 1  : {len(strs)} strings, {lay} multi-element layers, "
-          f"violations = {bad}")
+          f"violations = {lemma1_bad}")
 
     cases = []
     for L in range(1, 9):
@@ -179,5 +178,12 @@ if __name__ == "__main__":
                 for cb in itertools.product("ab", repeat=lb):
                     pairs.append(("".join(ca), "".join(cb)))
     pairs = rnd.sample(pairs, 30000)
-    tot, bad = audit_merge(pairs)
-    print(f"(e) merge tbl: {tot} (A,B) pairs, PSuf(AB) mismatches = {bad}")
+    tot, merge_bad = audit_merge(pairs)
+    print(f"(e) merge tbl: {tot} (A,B) pairs, PSuf(AB) mismatches = {merge_bad}")
+
+    failures = (lemma1_bad + st['ebad'] + st['gbad'] + st['lbad'] + st['kbad']
+                + st['vbad'] + st['cbad'] + merge_bad)
+    if failures:
+        print(f"FAILED: {failures} check violation(s)")
+        sys.exit(1)
+    print("all audited checks passed")

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Does the O(log^3 n) bound really depend on the endpoint formula and on DK24 IPM?
 
 This runs the FULL PSuf/PPref node merge using ONLY
@@ -9,7 +9,7 @@ i.e. without the E_L/E_R endpoint formula and without any IPM query.
 It checks the merged summaries against brute force and records the number of
 LCE calls per merge, so we can see whether it is O(#APs) = O(log n).
 """
-import itertools, random
+import itertools, random, sys
 
 def is_pal(s): return s == s[::-1]
 def psuf(X): return [d for d in range(1, len(X)+1) if is_pal(X[len(X)-d:])]
@@ -130,8 +130,13 @@ def main():
     print(f"max  LCE / #APs ratio       : {worst_ratio:.2f}")
     print(f"mean LCE calls per merge    : {tot_lce/len(pairs):.2f}")
     print()
-    print("endpoint formula used : NO")
-    print("IPM query used        : NO")
+    # The merge code in this file reaches only the Lemma-1/2 filters and canon;
+    # it contains no endpoint-formula or IPM call, which can be checked by reading
+    # merge_psuf. This script does not prove that property by itself.
+    if bad:
+        print(f"FAILED: {bad} PSuf mismatch(es)")
+        sys.exit(1)
+    print("all merges agree with brute force")
 
 if __name__ == "__main__":
     main()

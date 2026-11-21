@@ -89,11 +89,12 @@ def canon(triples):
     """Canonical dyadic AP form, computed WITHOUT expanding APs.
 
     Each input triple is cut by dyadic layers [2^j, 2^{j+1}) with O(1)
-    arithmetic per layer (ap_restrict).  Inside one layer the pieces are
-    disjoint and (by Lemma 1 applied to the true set) their union is a single
-    AP with difference p.  p is recovered as (second smallest - smallest)
-    element of the layer, computed from piece starts and steps only.
-    Cost: O(#pieces) arithmetic, never Theta(|set|)."""
+    arithmetic per layer (ap_restrict).  Inside one layer the union of the
+    pieces is a single AP with difference p (Lemma 1 applied to the true set).
+    p is the gap between the two smallest elements of the layer, read from
+    piece starts and steps only.  Pieces MAY overlap: the layer is validated by
+    membership of each candidate element in the pieces, not by counting, so a
+    doubly-covered element is not a hole."""
     by_layer = {}
     for tr in triples:
         s, st, c = tr
@@ -108,28 +109,39 @@ def canon(triples):
         pieces = by_layer[j]
         lo_el = min(s for s, _, _ in pieces)
         hi_el = max(s + (c - 1) * st for s, st, c in pieces)
-        # Lemma: the layer is a single AP, so its difference is the gap
-        # between the two smallest elements.  gcd is NOT valid here: pieces
-        # {4} and {7} give gcd 3 and the spurious AP 4,7 only by luck, while
-        # {1},{4},{7,14} gives gcd 1 and the wrong AP 4,5,6,7.
-        # We recover the difference from the true two smallest elements.
         if lo_el == hi_el:
             out.append((lo_el, 0, 1))
             continue
-        second = min(
-            (s + st if (s == lo_el and c > 1) else s)
-            for s, st, c in pieces
-            if (s + st if (s == lo_el and c > 1) else s) > lo_el
-        )
-        p = second - lo_el
+        # smallest element strictly above lo_el in any piece
+        cands = []
+        for s, st, c in pieces:
+            if s > lo_el:
+                cands.append(s)
+            elif s == lo_el and c > 1:
+                cands.append(s + st)
+        p = min(cands) - lo_el
         cnt = (hi_el - lo_el) // p + 1
-        # verify the layer really is this AP; the caller guarantees the input
-        # unions to an exact palindromic set, so this must hold
-        assert all((s - lo_el) % p == 0 and st % p == 0 for s, st, _ in pieces), \
-            "layer is not a single AP of difference p"
-        assert sum(c for _, _, c in pieces) == cnt, "layer has holes"
+        assert all((s - lo_el) % p == 0 for s, _, _ in pieces), \
+            "layer is not on one lattice of difference p"
+        assert all(_in_pieces(lo_el + k * p, pieces) for k in range(cnt)), \
+            "layer has a hole"
         out.append((lo_el, p, cnt))
     return out
+
+
+def _in_pieces(x, pieces):
+    """membership of x in the union of AP pieces, O(#pieces) arithmetic"""
+    for s, st, c in pieces:
+        if x < s:
+            continue
+        if c == 1:
+            if x == s:
+                return True
+            continue
+        if (x - s) % st == 0 and (x - s) // st < c:
+            return True
+    return False
+
 
 
 # ---------------- Lemma 2 information for one AP ----------------------------

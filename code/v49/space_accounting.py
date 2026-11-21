@@ -8,16 +8,21 @@ Two quantities are measured, both of which the space proof relies on.
     O(log^2 N) creating calls per operation, hence O(log^3 N) space per
     operation since each call runs in O(log N) time.
 
-(B) Total number of AP triples stored over all treap nodes.  The proof uses
-    the deterministic bound O(log N) triples per node, i.e. O(n log N) words
-    in total.  We also report the measured sum, which is smaller.
+(B) Total number of AP triples stored over all treap nodes.  Lemma 1 gives
+    at most bit_length(|X|) triples per node for each of PS and PP; this file
+    asserts that bound on every node it measures.
 
-The simulated rebuild schedule is checked too: rebuilding every
-ceil(n / log2 n) operations should keep the accumulated collection space at
-O(n log^2 n) while adding O(log^3 n) amortised time per operation.
+(C) The cumulative charge O(N + n0 log^2 N + q log^3 N) of the space theorem,
+    evaluated on the measured call counts.  There is no rebuild schedule to
+    check: the periodic-rebuilding version was removed from the paper, so the
+    only space statement is the per-operation charge summed over operations.
+
+This file reports measured counts and proves no space bound.  The O(log^3 n)
+call count here is a measurement.
 """
 import math
 import random
+import sys
 from collections import defaultdict
 
 import treap_full_verify as T
@@ -27,6 +32,9 @@ def node_triples(t, acc):
     if t is None:
         return
     T.push(t)
+    cap = t.sz.bit_length()
+    assert len(t.S.PS) <= cap and len(t.S.PP) <= cap, \
+        f"node of size {t.sz} stores more than bit_length triples"
     acc[0] += len(t.S.PS) + len(t.S.PP)
     acc[1] += 1
     node_triples(t.l, acc)
@@ -98,15 +106,24 @@ def main():
         print(f"{nfin:6d} {nodes:7d} {trip:9d} {bound:9d} {trip / max(1, nodes):10.2f}")
 
     print()
-    print("(C) rebuild schedule: space = O(n log N) treap + B * O(log^3 N) collection")
-    print(f"{'n':>6} {'B':>7} {'treap':>10} {'collection':>12} {'total/n':>9} {'/log^2':>8}")
+    print("(C) cumulative charge of Theorem 'space of an execution':")
+    print("    O(N + n0 log^2 N + q log^3 N) words, q = number of operations")
+    print(f"{'n0':>6} {'q':>5} {'treap':>10} {'coll(meas)':>12} {'q*log^3':>10} {'ratio':>7}")
+    ratios = []
     for n, mx, mean, trip, nodes, nfin in rows:
         lg = math.log2(n)
-        B = max(1, math.ceil(n / lg))
-        treap = 2 * n * lg
-        coll = B * mean * lg          # creating calls * O(log N) space each
-        tot = treap + coll
-        print(f"{n:6d} {B:7d} {treap:10.0f} {coll:12.0f} {tot / n:9.1f} {tot / (n * lg**2):8.3f}")
+        q = 40                       # operations performed by measure()
+        treap = 2 * n * lg           # treap's own records, O(n log N)
+        coll = q * mean * lg         # creating calls x O(log N) words each
+        bound = q * lg ** 3
+        ratios.append(coll / bound)
+        print(f"{n:6d} {q:5d} {treap:10.0f} {coll:12.0f} {bound:10.0f}"
+              f" {coll / bound:7.3f}")
+    print(f"    ratio measured/(q log^3 N) over n=64..2048:"
+          f" min {min(ratios):.2f} max {max(ratios):.2f}")
+    print("    the ratio is a constant factor above 1 and does not grow like")
+    print("    a power of log n; the bound hides constants, so this is the")
+    print("    expected shape.  It is a measurement, not a proof.")
 
 
 if __name__ == '__main__':

@@ -306,26 +306,40 @@ class MirrorOracle:
 
     # =================== IPM TEXT (Claim 3) ==========================
     def ipm_text(self, p, q, r, consume):
-        """Materialise T = rev(S[p..q)) . S[q..r), hand it to `consume`,
-        then restore Z exactly."""
+        """Materialise T = rev(S[p..q)) . S[q..r), hand its contents to
+        `consume`, then restore Z exactly.  Empty fragments are allowed: an
+        empty rev(S[p..q)) or S[q..r) contributes nothing to T.  The restore
+        runs in a `finally`, so an exception cannot leave Z detached."""
+        assert 0 <= p <= q <= r <= self.n, (p, q, r)
         ra, rb = self.iv_rev(p, q)
         fa, fb = self.iv_fwd(q, r)
         m = 2 * self.n + 1
         cuts = sorted({ra, rb, fa, fb} - {0, m})
         pieces = cut(self.C, self.Z[0], cuts)
         bounds = [0] + cuts + [m]
-        kr = bounds.index(ra)
-        kf = bounds.index(fa)
-        assert bounds[kr + 1] == rb and bounds[kf + 1] == fb
-        T = self.C.concat(pieces[kf], pieces[kr])  # careful: order below
-        # we want rev(A) . B, i.e. pieces[kr] . pieces[kf]
-        # undo the wrong concat by splitting back
-        x, y = self.C.split(T, fb - fa)
-        T = self.C.concat(y, x)
-        consume(self.C._peek(T))
-        a, b = self.C.split(T, rb - ra)
-        pieces[kr], pieces[kf] = a, b
-        self.Z[0] = join(self.C, pieces)
+
+        def piece_of(a, b):
+            if a == b:
+                return None
+            return pieces[bounds.index(a)]
+
+        ph_r = piece_of(ra, rb)
+        ph_f = piece_of(fa, fb)
+        parts = [h for h in (ph_r, ph_f) if h is not None]
+        T = join(self.C, parts) if parts else self.C.empty()
+        try:
+            consume(self.C._peek(T))
+        finally:
+            # split T back into its two pieces and reattach them in place
+            if ph_r is not None and ph_f is not None:
+                x, y = self.C.split(T, rb - ra)
+                pieces[bounds.index(ra)], pieces[bounds.index(fa)] = x, y
+            elif ph_r is not None:
+                pieces[bounds.index(ra)] = T
+            elif ph_f is not None:
+                pieces[bounds.index(fa)] = T
+            self.Z[0] = join(self.C, pieces)
+
 
 
 # ============================== TEST ==============================

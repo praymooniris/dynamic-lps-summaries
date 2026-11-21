@@ -26,6 +26,7 @@ range cyclic shift, cut-and-paste, reverse-complement-style multi-block moves.
 """
 
 import random
+import sys
 
 SEP = '#'
 
@@ -253,11 +254,16 @@ def main():
     print(f"configurations checked : {checked}")
     print()
     print("general k-piece splice (single copy of Z):")
+    # The previous bound 2k+2 on splits was NOT satisfied by these runs
+    # (k=2 already reaches 8 splits). The table below is an observation of
+    # the measured maxima; a proven bound is not claimed here.
+    obs_split = obs_concat = 0
     for k in sorted([x for x in stats if isinstance(x, int)]):
         sp = max(d[0] for d in stats[k])
         co = max(d[1] for d in stats[k])
-        print(f"  k={k:2d}   max splits={sp:3d}   max concats={co:3d}"
-              f"   (bound 2k+2={2*k+2})")
+        obs_split = max(obs_split, sp / k)
+        obs_concat = max(obs_concat, co / k)
+        print(f"  k={k:2d}   max splits={sp:3d}   max concats={co:3d}")
     print()
     print("named operations (single copy of Z):")
     for key in [x for x in stats if isinstance(x, tuple)]:
@@ -265,10 +271,13 @@ def main():
         co = max(d[1] for d in stats[key])
         print(f"  {key[1]:16s} max splits={sp:3d}  max concats={co:3d}")
     print()
-    print("Z was rebuilt exactly as S'.#.rev(S') in every case.")
-    print("live length was exactly 2|S'|+1 after every rebuild (no leak).")
-    print("no destroyed handle was ever reused.")
+    print(f"measured: max splits/k = {obs_split:.1f}, max concats/k = {obs_concat:.1f}"
+          " (observation only; no O(k) bound is proved here)")
+    print("Z was rebuilt exactly as S'.#.rev(S') in every case (asserted).")
+    print("live length was exactly 2|S'|+1 after every rebuild (asserted).")
 
 
 if __name__ == "__main__":
     main()
+
+

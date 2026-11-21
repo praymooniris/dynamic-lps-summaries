@@ -1,5 +1,7 @@
-"""Regression checks for the two proof gaps closed in V4.9, plus the
-per-operation fragment bound stated in the V4.2 table.
+﻿"""Regression checks for the two proof gaps closed in V4.9.
+
+The fragment-count check that used to live here was removed together with the
+handle-free space version it belonged to.
 
 (1) d = 0 is not an AP member.  The crossing maximum C_L must include it.
     Example from the review: A = "ab", B = "bc", LP("abbc") = 2 comes only
@@ -94,40 +96,7 @@ def check_singletons():
           f" ({100 * hits['single'] / tot:.1f}%); all results exact")
 
 
-def check_fragments():
-    import v42_handle_free_verify as V
-    table = {'sub': 3, 'ins': 3, 'del': 2, 'rev': 3, 'rot': 4, 'query': 1}
-    worst = {k: 0 for k in table}
-    wrap = {'sub': 'op_sub', 'ins': 'op_ins', 'del': 'op_del',
-            'rev': 'op_rev', 'rot': 'op_rot', 'query': 'op_query'}
-    originals = {k: getattr(V, f) for k, f in wrap.items()}
-
-    def make(kind):
-        def run(*a):
-            V.STAT['maxfr'] = 0
-            out = originals[kind](*a)
-            worst[kind] = max(worst[kind], V.STAT['maxfr'])
-            return out
-        return run
-    for k, f in wrap.items():
-        setattr(V, f, make(k))
-    try:
-        for kind in ['rand2', 'period', 'pk5', 'many-borders']:
-            for seed in range(15):
-                V.run(seed, kind, random.Random(seed).randint(2, 40), 40,
-                      check_every=10 ** 9)
-    finally:
-        for k, f in wrap.items():
-            setattr(V, f, originals[k])
-    print("(3) largest fragment list seen, per operation (bound = final + 1):")
-    for k in table:
-        ok = worst[k] <= table[k] + 1
-        print(f"    {k:6s} final {table[k]}  observed max {worst[k]}  {'OK' if ok else 'VIOLATED'}")
-        assert ok
-
-
 if __name__ == '__main__':
     check_d0()
     check_singletons()
-    check_fragments()
     print("V4.9 regression: OK")

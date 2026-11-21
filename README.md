@@ -15,24 +15,31 @@
 集合为黑盒。每个 Treap 节点同时存子串与其反转的句柄，因此区间翻转退化为惰性标记，
 不需要底层结构提供翻转原语。
 
-| 版本 | 每操作时间（whp） | 空间（字） | 说明 |
-|---|---|---|---|
-| V4.0 | `O(log³ N)` 最坏 | 无界，每操作 `+O(log³ N)` | 基本版本 |
-| V4.1 | `O(log³ N)` 摊还 | `O(N log² N)` | 周期性整体重建 |
-| V4.1′ | `O(log⁴ N)` 摊还 | `O(N log N)` | 更短的重建周期 |
-| V4.2 | `O(log³ N)` 摊还 | 期望 `O(N)`；总是 `O(N log N)` | 节点不存句柄，集合中只有当前文本与其反转 |
+只保留一个严格成立的版本：
 
-边界条件：`N` 是全局串长上界，执行长度为 `N^c`，`c` 事先固定；对手必须是 oblivious；
-空间界不声明为最坏情况。V4.2 的空间界依赖一个通用回滚引理（论文 Lemma 事务调用），
-该引理扩展了 GKK 附录 A 对单次查询的可回滚性说明；V4.0 和 V4.1 不依赖它。
+| 量 | 界 | 条件 |
+|---|---|---|
+| 每操作时间 | `O(log³ N)` 最坏 | 在事件 `E` 上 |
+| 每操作新增空间 | `O(log³ N)` 字 | 在事件 `E` 上 |
+| `q` 次操作总空间 | `O(N + n₀ log² N + q log³ N)` 字 | 在事件 `E` 上 |
+| 答案 | 始终精确 | 无条件 |
+
+这里 `E` 是“底层集合无调用失败”与“树深 `O(log N)`”两个事件的交，
+`Pr[E] ≥ 1 − O(N^{-k})`，`k` 可事先任取。边界条件：`N` 是全局串长上界，
+执行长度至多 `N^c` 且 `c` 事先固定（否则集合的总展开长度与 `t` 不再是多项式，
+GKK 的 `O(log N)` 单次调用界失效）；对手必须是 oblivious。
+
+总空间随操作数 `q` 增长，不声明与 `q` 无关的空间界。两条压缩路线都已删除：
+周期性整体重建（原 V4.1/V4.1′）会把时间界从最坏情形降级为摊还，而节点不存句柄的
+`O(N)` 期望空间版本（原 V4.2）依赖 GKK 并未提供的跨调用状态回滚接口。
 
 ## 组合部分的归属
 
 dyadic 层上的等差表示、周期族 LCE、跨界回文分解都是文献中的已知技术
 （Amir–Boneh；Amir–Charalampopoulos–Pissis–Radoszewski；Funakoshi et al.；
 Rubinchik–Shur 的 eertree）。论文第 2 节说明了这些归属，并明确本文声称新增的只有
-以下组装性工作：镜像对摘要、全操作集的 `O(log³ N)`、翻转下的 Treap 深度论证、
-V4.2 及其空间界、以及事务回滚引理。
+以下组装性工作：镜像对摘要、全操作集的 `O(log³ N)`、翻转下的 Treap 深度论证，以及
+按操作计费的显式空间核算。
 
 ## 验证程序
 
@@ -42,10 +49,13 @@ V4.2 及其空间界、以及事务回滚引理。
 python treap_full_verify.py        # 端到端 Treap：300 次运行 × 60 个混合操作
 python run_fast_audit.py           # Cartesian 不变量、深度分布、canon 审计
 python v4_constructed_verify.py    # 13 类专门构造字符串，含空串
-python v49_regression.py           # d=0 项、singleton AP、各操作片段数
-python v42_handle_free_verify.py   # V4.2：节点不存句柄，永久调用计数
-python space_accounting.py         # 空间计费与 AP 三元组数
+python v49_regression.py           # d=0 项、singleton AP
+python audit_core.py               # Lemma 1/2、filter、五候选、合并表的独立审计
+python mirror_closure_verify.py    # 镜像闭包的分片计数（仅观测，不证明界）
+python space_accounting.py         # 空间计费与 AP 三元组数（每节点上界已断言）
 ```
+
+每个脚本在检查失败时以非零状态退出。
 
 这些程序把 Python 字符串当作句柄、用逐字符比较求 LCP，因此验证的是恒等式与
 算法正确性，**不是**动态字符串结构的复杂度或空间界。随机测试与特殊构造都不能

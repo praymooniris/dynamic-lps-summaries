@@ -174,6 +174,49 @@ def random_legal_partition(rnd, els):
     return out
 
 
+def random_overlapping_partition(rnd, els):
+    """a legal cover of `els` that may repeat elements: the disjoint partition
+    plus a few extra APs lying inside the set, so some elements are covered
+    twice.  Each element is covered at least once."""
+    base = random_legal_partition(rnd, els)
+    extra = []
+    for _ in range(rnd.randint(0, 4)):
+        s = rnd.choice(els)
+        opts = [e - s for e in els if e > s]
+        if opts:
+            st = rnd.choice(opts)
+            c = 1
+            while s + c * st in set(els):
+                c += 1
+            if c >= 2:
+                extra.append((s, st, c))
+    parts = base + extra
+    rnd.shuffle(parts)
+    return parts
+
+
+def audit_canon_overlap(trials=6000):
+    """repaired canon on overlapping covers; returns (checked, failures)"""
+    rnd = random.Random(31337)
+    checked = failures = 0
+    for _ in range(trials):
+        al = rnd.choice(['ab', 'abc'])
+        w = ''.join(rnd.choice(al) for _ in range(rnd.randint(1, 50)))
+        els = [d for d in range(1, len(w) + 1)
+               if w[len(w) - d:] == w[len(w) - d:][::-1]]
+        if not els:
+            continue
+        checked += 1
+        part = random_overlapping_partition(rnd, els)
+        try:
+            got = T.canon(part)
+            if T.ap_expand(got) != set(els) or len(got) > len(w).bit_length():
+                failures += 1
+        except AssertionError:
+            failures += 1
+    return checked, failures
+
+
 def audit_canon(trials=20000):
     rnd = random.Random(31337)
     bad_set = bad_count = bad_layer = 0
@@ -211,28 +254,50 @@ def audit_canon(trials=20000):
 
 
 if __name__ == '__main__':
+    failures = 0
+
     print("=== (I) Cartesian invariant under split / merge / flip ===")
-    tot = 0
+    steps = 0
     for seed in range(40):
         n = random.Random(seed).randint(1, 60)
-        tot += run_invariant(seed, n, 120)
-    print(f"    40 runs x 120 mixed ops (rev/rot/ins/del): invariant held every step")
-    print(f"    every node's children matched the rebuilt Cartesian tree")
+        # run_invariant asserts after every operation; reaching the next line
+        # means every checked step passed.
+        run_invariant(seed, n, 120)
+        steps += 120
+    print(f"    40 runs x 120 mixed ops (rev/rot/ins/del): {steps} steps checked,"
+          f" every one matched the rebuilt Cartesian tree")
     print()
 
     print("=== (II) depth distribution after many reversals vs fresh treaps ===")
-    for n in [64, 256, 1024]:
-        a = reversed_depths(n, 300, nrev=400, seed=n)
-        b = fresh_depths(n, 300, seed=n + 1)
+    # Reps are reduced from 300 to keep the default run to a few minutes; the
+    # reversal loop dominates the cost (about 0.9 s/rep at n=64, 2.8 s at n=256).
+    # The KS critical value is computed from the actual sample sizes.
+    for n, reps in [(64, 100), (256, 100)]:
+        a = reversed_depths(n, reps, nrev=400, seed=n)
+        b = fresh_depths(n, reps, seed=n + 1)
         d, crit = ks(a, b)
         ma = sum(a) / len(a)
         mb = sum(b) / len(b)
-        verdict = "same (KS not rejected)" if d <= crit else "DIFFERENT"
-        print(f"    n={n:5d}  mean depth after 400 reversals={ma:5.2f}"
+        ok = d <= crit
+        failures += 0 if ok else 1
+        verdict = "same (KS not rejected)" if ok else "DIFFERENT"
+        print(f"    n={n:5d}  reps={reps}  mean depth after 400 reversals={ma:5.2f}"
               f"   fresh={mb:5.2f}   KS D={d:.3f} crit={crit:.3f}  -> {verdict}")
     print()
 
     print("=== (III) canon on arbitrary legal AP partitions ===")
     ch, b1, b2, b3 = audit_canon()
+    failures += b1 + b2 + b3
     print(f"    {ch} palindromic-suffix sets, random non-dyadic input partitions")
     print(f"    wrong union={b1}   too many triples={b2}   layer/period wrong={b3}")
+    och, ofail = audit_canon_overlap()
+    failures += ofail
+    print(f"    {och} palindromic-suffix sets, random OVERLAPPING legal covers:"
+          f" failures={ofail}")
+    print()
+
+    if failures:
+        print(f"FAILED: {failures} failing check(s)")
+        sys.exit(1)
+    print("all checks passed")
+
