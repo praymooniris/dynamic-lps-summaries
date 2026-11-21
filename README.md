@@ -9,26 +9,39 @@ substring (LPS) data structures.
 the retraction ledger before citing any bound.
 
 - Paper: [`paper/paper.pdf`](paper/paper.pdf) · LaTeX source: [`paper/main.tex`](paper/main.tex)
+- Revision notes (Chinese): [`docs/REVISION_zh.md`](docs/REVISION_zh.md)
 - Notes: [`notes/`](notes/) — proofs, endpoint derivations, optimization notes, distinct-palindrome study
 - Code: [`code/`](code/) — experimental Treap and block-decomposition implementations
+- Previous draft: [`paper/v1/`](paper/v1/) — kept for comparison only
 
 ## What the paper claims
 
 Inside the *mergeable-summary* framework (an implicit Treap whose nodes store the longest
 palindrome `LP`, the palindromic-prefix/suffix length sets `PSuf`/`PPref` as arithmetic
-progressions, and forward/reverse hashes, with dynamic LCE from GKK/DK24):
+progressions, and forward/reverse hashes), the complexity depends on the LCE mechanism:
+
+| Variant | LCE mechanism | Supported operations | Time per operation |
+|---|---|---|---|
+| V1 | binary search over Treap hashes, `O(log² n)` per LCE | all operations | `O(log⁴ n)` whp |
+| V2 | GKK dynamic LCE, `O(log n)` whp | point update, insert, delete, queries | `O(log³ n)` whp |
+| V3 | hypothetical `O(log n)` LCE also supporting reversal/rotation | all operations | `O(log³ n)` whp (conditional) |
+
+The paper is explicit that the `O(log³ n)` bound for the **full** operation set is
+conditional on an LCE oracle that the cited literature does not provide. V1 is the
+unconditional data-structural statement; V2 is the strong statement for the edit-only
+model. Random/typical inputs give expected `O(log² n)`; the LP-only channel is `O(log² n)`.
+
+Other results:
 
 | Result | Statement |
 |---|---|
-| Worst case | `T = O(log³ N)` with high probability, for point update, range reversal, range cyclic shift, insertion, deletion, and range LPS queries |
-| Random/typical inputs | expected `O(log² N)` |
-| Tightness | each of the three log factors (`M`, `A`, `λ`) has an independent lower bound *inside the framework*; no two can be merged |
-| LP-only channel | `O(log² N)` if only whole-string LPS is queried and intervals are never queried |
-| AP lower bound | `PSuf` needs `Θ(log N)` arithmetic progressions on the explicit family `Z_k` |
-| Batch-LCE barrier | answering `k` scattered LCPs costs `Ω(k log N)` in the recompression parse-tree model |
+| AP lower bound | `PSuf` needs `Θ(log n)` arithmetic progressions on the explicit family `Z_k` |
+| Batch-LCE barrier | model-specific `Ω(k log n)` argument in the recompression parse-tree model |
+| Lazy-summary barrier | potential gap + `P_k` experiments |
+| Distinct counting | open; the current length-based summary is insufficient |
 
-The paper is explicit that `O(log³ N)` is **not** a lower bound for the general dynamic LPS
-problem and does not prove that `q·polylog N` is impossible.
+The paper does **not** prove a lower bound for the general dynamic LPS problem and does not
+prove that `q·polylog n` is impossible.
 
 Monte-Carlo caveat: the implementations use double rolling hashes; the paper's hash-error
 analysis corrects an earlier invalid `10⁻⁴` claim (see §4.4).
@@ -60,8 +73,9 @@ pdflatex main.tex
 pdflatex main.tex
 ```
 
-The checked-in `paper.pdf` was rendered from `paper.html` (this machine had no TeX
-toolchain), so a local LaTeX build may differ slightly in pagination.
+The checked-in `paper.pdf` was rendered from `paper.html` with Pandoc (MathML) and Edge,
+because this machine had no TeX toolchain; a local LaTeX build may differ slightly in
+pagination. The HTML can also be opened directly in a browser.
 
 ## Running the code
 
