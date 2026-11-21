@@ -1,708 +1,286 @@
-% !TEX program = pdflatex
 \documentclass[11pt]{article}
-
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
 \usepackage[margin=1in]{geometry}
-\usepackage{amsmath,amssymb,amsthm,mathtools}
-\usepackage{booktabs}
-\usepackage{enumitem}
-\usepackage{microtype}
-\usepackage[hidelinks]{hyperref}
-\usepackage{xcolor}
-
+\usepackage{amsmath,amssymb,amsthm,booktabs,hyperref}
 \theoremstyle{plain}
-\newtheorem{theorem}{Theorem}[section]
+\newtheorem{theorem}{Theorem}
 \newtheorem{lemma}[theorem]{Lemma}
-\newtheorem{proposition}[theorem]{Proposition}
-\newtheorem{corollary}[theorem]{Corollary}
-\theoremstyle{definition}
-\newtheorem{definition}[theorem]{Definition}
-\newtheorem{assumption}[theorem]{Assumption}
-\newtheorem{problem}[theorem]{Problem}
 \theoremstyle{remark}
 \newtheorem{remark}[theorem]{Remark}
-\newtheorem{barrier}[theorem]{Barrier}
-
-\newcommand{\PSuf}{\operatorname{PSuf}}
-\newcommand{\PPref}{\operatorname{PPref}}
-\newcommand{\LP}{\operatorname{LP}}
-\newcommand{\LCE}{\operatorname{LCE}}
-\newcommand{\LCP}{\operatorname{LCP}}
-\newcommand{\rev}{\operatorname{rev}}
-\newcommand{\whp}{\mathrm{whp}}
-\newcommand{\polylog}{\operatorname{polylog}}
-\newcommand{\Occ}{\operatorname{Occ}}
-\newcommand{\AP}{\mathrm{AP}}
-\newcommand{\eps}{\varepsilon}
-
-\title{\bfseries Fully Dynamic Longest Palindromic Substring\\ via Mergeable Palindrome Summaries}
-
-\author{Chengde Liu\thanks{This is a revised technical report compiled from the project archive. It supersedes the earlier draft ``Dynamic Longest Palindromic Substring via Mergeable Palindrome Summaries: A Tight $\Theta(\log^3 N)$ Account''. The revision separates the self-contained hashing variant from the external-LCE variant, corrects the related-work comparison, and marks every statement according to its evidence status.}}
-
+\title{Dynamic Longest Palindromic Substring via Mergeable Summaries\\V4.9: Full Operation Set in $O(\log^3 N)$}
+\author{Chengde Liu}
 \date{November 2026}
-
-\begin{document}
-\maketitle
-
+\begin{document}\maketitle
 \begin{abstract}
-We study the longest palindromic substring (LPS) problem for a string that undergoes point updates, insertions, deletions, range reversals, range cyclic shifts, and interval LPS queries. We develop a mergeable-summary framework: an implicit Treap stores the sequence, and every node keeps the longest palindrome length $\LP$, the palindromic-suffix and palindromic-prefix length sets $\PSuf$ and $\PPref$ compressed as arithmetic progressions, and forward/reverse hashes. The combinatorial heart is fourfold: a dyadic-layer lemma showing that palindromic suffix lengths in each layer $[L,2L)$ form an arithmetic progression; a periodic-family LCE lemma answering all extension queries of one progression with $O(1)$ LCE calls; a five-candidate lemma for the crossing maximum; and an endpoint formula for the short-kernel region that handles the equality boundary correctly. These give a merge rule in which the per-node cost is $M\cdot(A\cdot c\cdot\lambda+R)$, with $M=O(\log n)$ Treap depth, $A=O(\log n)$ progressions per summary, $c=O(1)$ LCEs per progression, and $\lambda$ the cost of one dynamic LCE.
-
-Our complexity statements are deliberately split into three variants. \textbf{(V1)} With LCE answered by binary search over Treap hashes, the full operation set runs in $O(\log^4 n)$ per operation with high probability, unconditionally in the data-structural sense and Monte Carlo only because of hashing. \textbf{(V2)} With the dynamic LCE of Gawrychowski--Karczmarz--Kociumaka--{\L}acki--Sankowski (GKK), which supports point updates, insertions, and deletions in $O(\log n)$ time, those operations and interval queries run in $O(\log^3 n)$ with high probability. \textbf{(V3)} The same $O(\log^3 n)$ bound for range reversal and cyclic shift is \emph{conditional} on an LCE oracle supporting those rearrangements; the cited GKK and Duyster--Kociumaka primitives do not provide one. We state this gap explicitly instead of attributing the two bounds to one algorithm.
-
-We further prove that the number of progressions per summary is $\Theta(\log n)$ on the explicit family $Z_k$, analyze why a batch-LCE primitive that would collapse $A\cdot\lambda$ is not available in the recompression parse-tree model, and explain why lazy summaries do not give an amortized improvement. These are \emph{barriers within the framework}, not lower bounds for the dynamic LPS problem. Finally, we report exhaustive and randomized verification of every merge formula (hundreds of thousands of cases, zero failures), an experimental Treap implementation, and an independent block-decomposition implementation with reproducible differential testing. The block implementation is correct on the saved battery but empirically slower than per-query Manacher at the tested sizes; we report this negative result. The distinct-palindromic-substring extension is treated in a separate exploratory section with explicit negative findings. The paper therefore states not only what the framework achieves, but also exactly which steps are proved, which are verified, which are assumed, and which remain open.
+We give a data structure maintaining the longest palindromic substring of a string under character replacement, insertion, deletion, range reversal and range cyclic shift, answering the query on an arbitrary interval. Each treap node stores handles of its substring and of the reverse of its substring, which turns range reversal into a lazy flag and requires no reversal primitive from the underlying dynamic-string structure. The combinatorial ingredients, a dyadic arithmetic-progression representation of the palindromic suffix lengths and a periodic-family extension formula, are known technique and are proved here in the form the merge needs; Section~\ref{sec:related} states the attribution and what we claim as new. Using the persistent dynamic string collection of Gawrychowski, Karczmarz, Kociumaka, {\L}\k{a}cki and Sankowski (SODA 2018) as a black box, every operation runs in $O(\log^3 N)$ time, simultaneously for a polynomially long execution with high probability, against an oblivious adversary; $N$ is a global bound on the string length. Answers are always exact, since randomness affects only running time. The basic version (V4.0) has no space bound. Keeping $O(\log^3N)$ but making it amortised, periodic rebuilding gives $O(N\log^2N)$ words (V4.1), and handle-free summaries, which keep only the text and its reverse in the collection, give $O(N)$ words in expectation and $O(N\log N)$ always (V4.2). The accompanying Python programs validate the identities and the algorithm's correctness, not its running time.
 \end{abstract}
+\section{Model and status}\label{sec:model}
+Let $N\ge2$ bound the length of every string during an execution of at most $N^c$ operations. The operations are character replacement, insertion, deletion, reversal and right rotation of half-open intervals, and longest palindromic substring length queries on intervals. We assume word operations on $O(\log N)$ bits cost $O(1)$. Treap priorities are independent continuous random variables; operation parameters and inserted characters are fixed independently of the priorities and of the collection's randomness.
 
-\tableofcontents
+We use the string collection of Gawrychowski, Karczmarz, Kociumaka, {\L}\k{a}cki and Sankowski~\cite{GKK} persistently: \texttt{concat} and \texttt{split} do not destroy their arguments, and no handle is ever discarded. Their \S1 states that all time complexities remain unchanged in exactly this persistent setting. We rely on the following three quantitative statements, and we check below that our use satisfies their hypotheses.
 
-\section{Introduction}
+\begin{itemize}
+\item[(G1)] \cite[Thm.~6.12]{GKK}: \texttt{concat} and \texttt{split} run in $O(\log n+\log t)$ worst-case time, where $n$ is the total length of the strings \emph{involved in that operation} and $t$ is the total input size of the current and prior updates (constant per \texttt{concat} and \texttt{split}). An operation may fail, with probability $O(t^{-c})$ for an arbitrarily large constant $c$ fixed in advance; a failed instance is unusable thereafter. The structure assumes the total length of the strings in the collection fits in $B$ bits, where $B$ is the machine word length.
+\item[(G2)] \cite[Thm.~8.17]{GKK}: the structure also answers \texttt{LCP} in worst-case constant time \emph{without failures}, at a constant-factor increase in update time.
+\item[(G3)] \cite[Lem.~A.1]{GKK}: for a \emph{fixed} sequence of updates, restarting on failure and replaying the history gives total running time proportional to the sum of the worst-case bounds, with high probability as specified there. Answers are exact; randomness affects only running time.
+\end{itemize}
 
-\subsection{Problem and model}
+\emph{Which $n$ appears.} By (G1) the update cost is governed by the length involved in the single operation, not by the size of the whole collection. Every string we ever create has length at most $N$, so $\log n=O(\log N)$. The number of collection calls in the execution is $t=N^{O(1)}$: there are at most $N^c$ operations, each visiting $O(\log N)$ treap nodes on the event that the depth bound of Section~\ref{sec:depth} holds, with $O(\log N)$ calls per node; on the complementary event we charge the execution to the failure probability. Hence $\log t=O(\log N)$ and each call costs $O(\log N)$. This is why the persistent setting causes no difficulty here even though~\cite{GKK} notes that a persistent collection's total length can be exponential in the input size.
 
-Let $S$ be a string over an alphabet $\Sigma$, whose current length is $n$. We consider the following operations, each specified by an interval in the current string:
-\begin{enumerate}[label=(\roman*),leftmargin=1.8em,itemsep=0.15em]
-\item \textbf{point update}: replace $S[p]$ by a given character;
-\item \textbf{insertion} and \textbf{deletion}: insert a character at position $p$, or delete $S[p]$;
-\item \textbf{range reversal}: replace $S[l..r)$ by its reversal;
-\item \textbf{range cyclic shift}: rotate $S[l..r)$ cyclically by $k$ positions;
-\item \textbf{LPS query}: return the length of a longest palindromic substring of the whole string, or of a queried interval $S[l..r)$.
-\end{enumerate}
-The goal is a data structure with $q\cdot\polylog(n+q)$ total time for any sequence of $q$ operations, in the regime where each operation may change the text.
+\emph{The word-size hypothesis.} The total length of all strings in the collection is at most $2N\cdot t=N^{O(1)}$, since each call creates at most two strings of length at most $N$. So it fits in $O(\log N)$ bits, and the simulation argument of~\cite[App.~A]{GKK} absorbs the constant-factor word extension.
 
-\subsection{Results at a glance}
+\emph{Obliviousness towards the collection's coins.} (G3) is stated for a fixed update sequence, so we must check that ours is fixed. Each argument we pass to the collection is a function of the operation sequence, the treap priorities, and previously returned \texttt{LCP} values; by (G2) those answers are exact, hence functions of the strings alone. Handles are not a hidden channel either: \cite[\S3]{GKK} assigns them as consecutive integers in creation order and returns the existing handle when a created string is already present, so handles are a deterministic function of the call sequence. Conditioned on the priorities, which are independent of the collection's randomness, our entire call sequence is therefore fixed before any collection coin is used. In particular every string the collection creates is fixed relative to its coins, which is the hypothesis under which its depth bound~\cite[Lem.~3.3]{GKK}, and hence (G1), applies.
 
-We work inside the following \emph{mergeable-summary} framework. An implicit Treap with random priorities stores the sequence. Each node stores a summary of its substring: its length, forward and reverse hashes, $\LP$, and the sets $\PSuf,\PPref$ represented as $O(\log n)$ arithmetic progressions (APs). Split and merge recompute the summaries along the affected paths. LCE queries are answered either inside the Treap by hashing, or by an external dynamic-string oracle.
+\emph{Per-operation bound without restarts.} The failure probability in (G1) is $O(t^{-c})$, which is constant for the first few updates, and (G3) controls only the total time of a sequence. To obtain a per-operation bound we make one \texttt{make\_string} call on a dummy string of length $N$ before the execution starts, at cost $O(N)$ by~\cite[Thm.~6.12]{GKK}. Afterwards $t\ge N$ for every call, so each call fails with probability $O(N^{-c})$. A union bound over the $N^{O(1)}$ calls, with $c$ chosen large enough, shows that with high probability no call ever fails. On that event no restart happens and every call costs $O(\log N)$ worst-case.
 
-The complexity depends on which LCE mechanism is used, and on which rearrangements the oracle supports. We therefore state three variants.
+\section{Related work and what is new here}\label{sec:related}
+\paragraph{Dynamic palindromes.} Amir and Boneh~\cite{AB19} maintain the longest palindromic substring under single-character substitutions in polylogarithmic time per edit; this is the first polylogarithmic dynamic LPS result and the benchmark for the substitution-only case. Amir, Charalampopoulos, Pissis and Radoszewski~\cite{ACPR18} give the first sublinear fully dynamic algorithm for the longest common substring and note that their techniques also yield fully dynamic longest palindrome, in $\tilde O(n^{2/3})$ time, or $\tilde O(\sqrt n)$ when edits are confined to one string. Funakoshi, Nakashima, Inenaga, Bannai and Takeda~\cite{FNIBT} solve a different problem: after $O(n)$ preprocessing of a static string they answer, in polylogarithmic time, what the longest palindrome would be after a single substitution or block edit that is then reverted; the string does not evolve.
 
-\begin{center}
-\begin{tabular}{@{}p{0.12\textwidth}p{0.23\textwidth}p{0.28\textwidth}p{0.25\textwidth}@{}}
-\toprule
-Variant & LCE mechanism & Supported operations & Time per operation \\
-\midrule
-V1 & binary search over Treap hashes, $O(\log^2 n)$ per LCE & all of (i)--(v) & $O(\log^4 n)$ $\whp$ \\
-V2 & GKK dynamic LCE, $O(\log n)$ $\whp$ & (i), (ii), (v); no reversal or rotation & $O(\log^3 n)$ $\whp$ \\
-V3 & hypothetical LCE oracle of $O(\log n)$ supporting reversals and rotations & all of (i)--(v) & $O(\log^3 n)$ $\whp$ (conditional) \\
-\bottomrule
-\end{tabular}
-\end{center}
+Relative to these, our operation set is wider: besides substitution, insertion and deletion we support range reversal and range cyclic shift, and we answer the query on an arbitrary interval rather than only on the whole string. The price is a model restriction: our bound is against an oblivious adversary, holds with high probability, and the reversal and shift operations are what the mergeable-summary route is designed for. We do not claim to improve on~\cite{AB19} in its own model.
 
-Variant V1 is the bound realized by the reference implementation: it needs no external dynamic-string structure, but each LCE costs a binary search over hash comparisons, and each hash comparison costs a tree traversal, so $\lambda=O(\log^2 n)$ and the total is $O(\log^4 n)$. Variant V2 uses the GKK dynamic string, which supports point updates, insertions and deletions with $O(\log n)$ updates and LCE queries; range reversal and cyclic shift are not operations of that structure. Variant V3 is the natural target of the framework, but the required oracle is not provided by the literature we are aware of; we keep it as an explicit condition rather than a theorem.
+\paragraph{Which combinatorial facts are known.} The ingredients of Sections~\ref{sec:comb} and~\ref{sec:merge} are, with one exception, known technique, and we prove them only to keep the paper self-contained and to fix the exact form each is used in.
+\begin{itemize}
+\item \emph{Lemma~\ref{dyadic}} is known. That the palindromic suffix lengths of a string split into $O(\log n)$ arithmetic progressions, each consisting of palindromes with a common shortest period, is stated and used by~\cite[\S8.2]{ACPR18}; it is the series-link structure of the eertree of Rubinchik and Shur~\cite{RS15}, and the underlying periodicity is Fine--Wilf~\cite{FW}. We give the dyadic-layer form because it composes with treap summaries.
+\item \emph{The crossing decomposition} of Section~\ref{sec:merge}, including Lemma~\ref{crossmax}, is the standard way to combine palindrome information across a concatenation point and is used in essentially this form in~\cite{AB19,ACPR18}.
+\item \emph{Lemma~\ref{family}} is an instance of the standard observation that a periodic family of queries can be answered from the period's extension; comparable statements appear in~\cite{AB19,ACPR18}. We state it with its three branches and the exceptional point because the merge needs the exact value, not a bound.
+\item \emph{Lemmas~\ref{filters}, \ref{five} and~\ref{canon}} are bookkeeping on top of the above: which members of an AP survive a threshold, where a unimodal function on an AP is maximised, and how to recover the canonical dyadic form without expanding an AP. We have not found Lemma~\ref{canon} stated elsewhere; it is elementary.
+\item \emph{Lemma~\ref{fringe}} is the classical fringe count for random binary search trees~\cite{Aldous,Devroye}.
+\end{itemize}
 
-The expected/typical behaviour is better. On random inputs the number of APs per summary is a small constant in experiments, so V2 becomes $O(\log^2 n)$ in expectation. For whole-string LPS only, the long-kernel AP count drops to $O(1)$ by LP pruning, and the expected bound is again $O(\log^2 n)$; this channel cannot replace the full summary for interval queries.
+\paragraph{Our increment.} What we claim as new is the assembly, not the ingredients: (i) the mirror-pair node summary, which stores handles of a node's string and its reverse, so that range reversal becomes a lazy flag and no reversal primitive is needed from the dynamic-string black box (Section~5); (ii) the resulting $O(\log^3N)$ bound for the full operation set including reversal and cyclic shift, with the black-box hypotheses discharged explicitly (Sections~2 and~6); (iii) the treap-depth argument under range reversal, where priorities travel with elements whose positions the operations permute (Section~6); (iv) the handle-free variant V4.2 and its space bound (Section~\ref{sec:v42}); and (v) the transaction lemma~\ref{transaction}, a generic rollback argument that V4.2's space bound uses.
 
-\subsection{Contributions}
-
-\begin{enumerate}[leftmargin=1.8em,itemsep=0.25em]
-\item \textbf{A complete merge theory} (Section~\ref{sec:core}): the crossing decomposition, the dyadic-layer AP lemma, the periodic-family LCE lemma, the five-candidate lemma, two filter lemmas, the four-row merge tables, and a corrected endpoint formula. Each is stated with explicit hypotheses and proved; the merge formulas are also verified computationally.
-\item \textbf{A precise separation of complexity variants} (Section~\ref{sec:complexity}): V1, V2, V3 above, with the dependence on the LCE oracle and on the supported rearrangements made explicit. This replaces the earlier unconditional attribution of $O(\log^3 n)$ to the full operation set.
-\item \textbf{Framework barriers} (Section~\ref{sec:barriers}): $\Theta(\log n)$ progressions are necessary on $Z_k$; the batch-LCE primitive is unavailable in the recompression model; lazy summaries leave a potential gap. We label these as barriers, not as lower bounds for the problem.
-\item \textbf{Implementation and evidence} (Section~\ref{sec:experiments}): an experimental Treap, an independent block decomposition, a reproducible test battery, and a verification table. We also report the negative performance result of the block implementation.
-\item \textbf{An exploratory distinct-palindrome section} (Section~\ref{sec:distinct}) with explicit negative findings and an unverified runs-summary proposal.
-\item \textbf{A claim-status ledger} (Section~\ref{sec:status}) so that proved, verified, assumed, conditional, and withdrawn statements are never conflated.
-\end{enumerate}
-
-\subsection{Positioning}
-
-The closest prior work is Amir and Boneh \cite{AB19}, who maintain the LPS under \emph{single-character substitutions} in $O(\log^4 n)$ time with high probability (randomized LCE) or $O(\log^5 n\log^*n)$ time (deterministic LCE). Their model is narrower than ours, and their analysis is the benchmark for the substitution-only case. Amir, Charalampopoulos, Pissis, and Radoszewski \cite{ACPR19} give the first sublinear fully dynamic algorithm for longest common substring; their techniques also yield a fully dynamic LPS with $\tilde O(\sqrt n)$ time in the one-sided edit setting (and $\tilde O(n^{2/3})$ for two strings). Funakoshi, Nakashima, Inenaga, Bannai, and Takeda \cite{FNIBT21} solve a different problem: the string is preprocessed once, and the LPS is reported after a \emph{single} edit that is treated as a query; their query time is $O(\log\log n)$ after $O(n)$ preprocessing, but the string itself does not evolve. Dynamic LCS has a polylogarithmic algorithm \cite{CGP20} and a lower bound of $\Omega(\log n/\log\log n)$; it is the closest dynamic-string analogue of the present work.
-
-Our contribution is not a new lower bound for dynamic LPS and not the first polylogarithmic dynamic palindrome result---that is \cite{AB19} for substitutions. It is a mergeable-summary route that supports a wider operation set, together with a careful account of the cost of each ingredient. The $O(\log^3 n)$ bound of V2 is one logarithmic factor better than \cite{AB19} in the substitution-only case, but only under a randomized LCE oracle; the deterministic bound of \cite{AB19} remains stronger in the deterministic model. We do not claim a breakthrough.
-
-\section{Preliminaries}\label{sec:prelim}
-
-\subsection{Strings and notation}
-
-Intervals are half-open. For a string $X$, $\rev(X)$ denotes its reversal, $|X|$ its length, and $\LCP(X[i..],Y[j..])$ the length of the longest common prefix of the two suffixes; we write $\LCE(X,i,Y,j)$ for the same quantity. For a string $X$ of length $m$,
-\[
-\PSuf(X)=\{\,d\in[1,m]: X[m-d..m)\text{ is a palindrome}\,\},\qquad
-\PPref(X)=\{\,d\in[1,m]: X[0..d)\text{ is a palindrome}\,\}.
-\]
-Both sets are stored in increasing order. An arithmetic progression (AP) is a finite set
-\[
-a,\ a+p,\ a+2p,\ \ldots,\ a+(t-1)p,\qquad p>0,
-\]
-of $t\ge1$ terms; a singleton is an AP with $t=1$ and arbitrary step. An AP intersected with an integer interval is again an AP or empty.
-
-\subsection{Dynamic-string primitives}
-
-We use two external results as black boxes.
-
-\begin{definition}[Dynamic LCE oracle]\label{def:lce}
-A dynamic LCE oracle maintains a text under a set of updates $\mathcal U$ and supports $\LCE(X,i,X,j)$ on the current text. We say it is \emph{$(u,\lambda)$-efficient} if every update in $\mathcal U$ costs $O(u)$ and every LCE query costs $O(\lambda)$ in the word RAM, with high probability when randomized.
-\end{definition}
-
-The GKK structure \cite{GKK18} is $(O(\log n),O(\log n))$-efficient for $\mathcal U$ consisting of point substitutions, insertions, and deletions. The Duyster--Kociumaka result \cite{DK24} answers internal pattern matching (IPM) queries on a balanced recompression-based RLSLP, and in particular on top of \cite{GKK18}, in $O(\log n)$ time: given fragments $X,Y$ of the current text with $|Y|<2|X|$, it reports all occurrences of $X$ in $Y$ as $O(1)$ APs. Neither primitive lists range reversal or cyclic shift as a supported update. This is the source of the V2/V3 distinction.
-
-When no external oracle is used, LCE can be answered inside the Treap: store forward and reverse polynomial hashes at every node, compare two substrings by extracting their hashes, and binary search for the longest matching prefix. A hash extraction costs $O(\log n)$ (a tree path), and the binary search performs $O(\log n)$ extractions, so $\lambda=O(\log^2 n)$. This is the mechanism of V1.
-
-\subsection{The Treap}
-
-An implicit Treap stores a sequence in inorder. Each node has a random priority, a subtree size, and a summary of the substring it spans. Split and merge are the standard randomized operations; both take $O(\log n)$ expected time, and both recompute the summaries of the nodes they visit. With high probability the depth is $O(\log n)$. A reversal of an interval is implemented by splitting out the interval, toggling a lazy reversal flag at its root, and merging back; the flag swaps forward and reverse hashes and exchanges $\PSuf$ with $\PPref$, while $\LP$ is invariant. A cyclic shift is implemented by splitting the interval into two parts and merging them in the opposite order. Insertions and deletions are a split followed by a merge.
-
-A range LPS query isolates $S[l..r)$ as a temporary tree by two splits, reads the $\LP$ stored at its root, and merges the pieces back. A whole-string query reads the $\LP$ at the root.
-
-\section{Combinatorial foundations}\label{sec:core}
-
-Throughout this section, $T=AB$ with $|A|=m$ and $|B|=n$. All statements are deterministic facts about strings; LCE is treated as an exact primitive.
-
-\subsection{Crossing palindromes}
-
-Define
-\[
-\ell_L(d)=\LCP(\rev(A)[d..],B),\qquad \ell_R(d)=\LCP(B[d..],\rev(A)).
-\]
-
-\begin{lemma}[Crossing decomposition]\label{lem:cross}
-Every palindromic substring of $AB$ is either entirely inside $A$, entirely inside $B$, or has the following form: it consists of a palindromic core $W$ adjacent to the concatenation point, extended symmetrically on both sides. Consequently
-\begin{equation}\label{eq:cross}
-C_L=\max_{d\in\PSuf(A)\cup\{0\}}\Bigl[d+2\min\bigl(m-d,n,\ell_L(d)\bigr)\Bigr],\qquad
-C_R=\max_{d\in\PPref(B)\cup\{0\}}\Bigl[d+2\min\bigl(n-d,m,\ell_R(d)\bigr)\Bigr],
-\end{equation}
-and
-\begin{equation}\label{eq:lpmerge}
-\LP(AB)=\max\bigl(\LP(A),\LP(B),C_L,C_R\bigr).
-\end{equation}
+\section{Palindrome combinatorics}\label{sec:comb}
+For a string $X$, write $P_s(X)$ and $P_p(X)$ for its positive palindromic suffix and prefix lengths, and $\operatorname{LP}(X)$ for its longest palindromic substring length. We store an AP as $(a,p,t)$ with members $a+ip$ for $0\le i<t$; a singleton has step zero.
+\begin{lemma}[Dyadic layer]\label{dyadic}
+For $L\ge1$, the members of $P_s(X)\cap[L,2L)$ form an AP. If there are two or more members its step is the least period of the longest member. The prefix statement follows by reversal.
 \end{lemma}
-
 \begin{proof}
-Let a palindrome cross the concatenation. Let $a$ be the length of its part in $A$ and $b$ that in $B$. If $a\ge b$, remove $b$ characters from each side; the remaining core has length $d=a-b$ and is a palindromic suffix of $A$. The removed characters match exactly when $\LCP(\rev(A)[d..],B)\ge b$, and the extension satisfies $b\le m-d$ and $b\le n$. For fixed $d$, the largest admissible $b$ is $\min(m-d,n,\ell_L(d))$, which gives a length of $d+2b$ and hence the term for $d$ in $C_L$. The case $a=b$ is the empty core $d=0$. If $a\le b$, the symmetric argument gives a palindromic prefix of $B$ of length $d=b-a$ and the term in $C_R$. Every crossing palindrome is in exactly one of the two cases (with $a=b$ counted once), and every admissible pair $(d,b)$ constructs a palindrome, so the maximum is exact.
+Let $w$ be the longest palindrome in the layer, of length $W$, and let $V<W$ be another length. The shorter palindrome is a border of $w$, hence $q=W-V$ is a period. Since $V\ge L>W/2$, $q<W/2$. If $p$ is the least period then $p\le q$ and $p+q<W$. Fine--Wilf~\cite{FW} implies $\gcd(p,q)$ is a period, so minimality forces $p=\gcd(p,q)$ and $p\mid q$. Conversely every $kp<W$ is a period, so $w$ has a border of length $W-kp$, and each border of a palindrome is itself a palindrome. Thus precisely the permitted members $W-kp$ occur in the layer.
+\end{proof}
+\begin{lemma}[Periodic family]\label{family}
+Suppose $d_0,d_0+p,\ldots,d_0+tp$ are palindromic prefix lengths of $U$, $t\ge1$ and $p>0$. Let $e=p+\operatorname{LCP}(U[p..],U)$, $h=\operatorname{LCP}(U[d_0..],V)$, and put $g=h$ if $h<e-d_0$, otherwise $g=p+\operatorname{LCP}(V[p..],V)$. For each $d$ in the AP, with $a=e-d$,
+\[
+\operatorname{LCP}(U[d..],V)=\begin{cases}a&a<g,\\g&a>g,\\g+\operatorname{LCP}(U[e..],V[g..])&a=g.\end{cases}
+\]
+The data and all possible exceptional values use at most four LCP calls.
+\end{lemma}
+\begin{proof}
+Consecutive palindromic prefixes force $p$ to be a period of the longer prefix. Hence $e$ is at least the largest AP element and $e-d_0\ge p$. Let $Q=U[d_0..d_0+p)$ and $W=Q^\infty$. For each AP element $d$, $U[d..e)$ equals the prefix of $W$ of length $e-d$. At $e$, either $U$ ends or maximality of $e$ gives $U[e]\ne U[e-p]$, which is the next character of $W$. Thus $\operatorname{LCP}(U[d..],W)=e-d$, including the end-of-string case. Let $g'=\operatorname{LCP}(V,W)$. If $h<e-d_0$, $V$ ends or differs before the end of the periodic region, so $g'=h$. Otherwise $V$ begins with $Q$, and comparison of $V[p..]$ with $V$ determines its maximal periodic prefix, yielding $g'=p+\operatorname{LCP}(V[p..],V)$. Comparing the two exits from $W$ proves the first two branches; if they coincide, the remaining two suffixes are compared directly. Empty suffixes handle endpoints.
+\end{proof}
+\begin{lemma}[Filters]\label{filters}
+Let $\mathcal A$ be an AP of at least two palindromic prefix lengths of $U$, with $\ell$ and $e,g$ as in Lemma~\ref{family}. Then
+\[
+\{d\in\mathcal A:\ell(d)\ge K\}=
+\begin{cases}
+\mathcal A\cap(-\infty,e-K],& g\ge K,\\
+\{e-g\}\cap\mathcal A\text{ if }\ell(e-g)\ge K,\ \emptyset\text{ otherwise},& g<K,
+\end{cases}
+\]
+and
+\[
+\{d\in\mathcal A:\ell(d)\ge L-d\}=
+\begin{cases}
+\mathcal A\cap[L-g,\infty),& e\ge L,\\
+\{e-g\}\cap\mathcal A\text{ if }\ell(e-g)\ge L-(e-g),\ \emptyset\text{ otherwise},& e<L.
+\end{cases}
+\]
+Each is an AP or empty, and is computed with the four LCP calls of Lemma~\ref{family}.
+\end{lemma}
+\begin{proof}
+Away from the exceptional point $d=e-g$, Lemma~\ref{family} gives $\ell(d)=\min(e-d,g)$. For the first filter: if $g\ge K$ then $\min(e-d,g)\ge K$ iff $e-d\ge K$, and the exceptional point satisfies $e-(e-g)=g\ge K$, so it is included by the same inequality. If $g<K$ then every non-exceptional $d$ has $\ell(d)=\min(e-d,g)\le g<K$, so only $e-g$ can qualify, through the third branch. For the second filter: $\min(e-d,g)\ge L-d$ holds iff $e\ge L$ and $d\ge L-g$. If $e<L$ the first conjunct fails for every non-exceptional $d$, leaving only $e-g$. Intersecting an AP with an interval yields an AP or $\emptyset$.
 \end{proof}
 
-\subsection{Dyadic layers}
-
-\begin{lemma}[Dyadic AP lemma]\label{lem:dyadic}
-For every dyadic layer $[L,2L)$, the palindromic suffix lengths of a string lying in that layer form a contiguous arithmetic progression whose common difference is the minimal period of the longest palindromic suffix of that layer. The same holds for palindromic prefixes.
+\begin{lemma}[Candidates]\label{five}
+Let $m=|U|$, $n=|V|$ and $f(d)=d+2\min(m-d,n,\ell(d))$. For an AP $\mathcal A$ as in Lemma~\ref{filters}, $\max_{d\in\mathcal A}f(d)$ is attained at one of at most five elements of $\mathcal A$: its two endpoints, the at most two elements adjacent to $x=e-\min(n,g)$, and the exceptional point $e-g$ when it lies in $\mathcal A$.
 \end{lemma}
-
 \begin{proof}
-Let $w$ be the longest palindromic suffix in the layer and $W=|w|$, so $L\le W<2L$ and $L>W/2$. Let $v$ be another palindromic suffix in the layer, $V=|v|\le W$. Since $v,w$ are suffixes of the same string and $V\le W$, $v$ is a suffix of $w$; since both are palindromes, $v$ is also a prefix of $w$, hence a border of $w$. Put $q=W-V$. Then $q$ is a period of $w$, and $q\le W-L<W/2$. Let $p$ be the minimal positive period of $w$; then $p\le q$, so
+Since $\ell(d)\le m-d$ always, and $e\le m$, for non-exceptional $d$ we have $f(d)=d+2\min(e-d,n,g)$. Put $h=\min(n,g)$. For $d\le e-h$ this is $d+2h$, increasing in $d$; for $d\ge e-h$ it is $d+2(e-d)=2e-d$, decreasing. So on $\mathcal A$ minus its exceptional point, $f$ is unimodal with mode at $x=e-h$, and the maximum of a unimodal function over a finite AP is attained at an endpoint or at an AP element adjacent to the mode. The exceptional point is listed separately because its value uses the third branch of Lemma~\ref{family}, which can exceed $\min(e-d,g)$.
+\end{proof}
+
+\begin{remark}[Singletons]\label{singleton}
+Lemmas~\ref{family}, \ref{filters} and~\ref{five} assume $t\ge1$, i.e.\ at least two AP members, since a single member determines no period. A singleton $\{d\}$ is handled directly: one call gives $\ell(d)=\operatorname{LCP}(U[d..],V)$, each filter returns $\{d\}$ or $\emptyset$ by testing its defining inequality, and the maximum over the AP is $f(d)$. This is one LCP call instead of four, so the per-AP cost of Section~\ref{sec:merge} is unaffected. By Lemma~\ref{dyadic} a canonical representation can consist entirely of singletons, for instance $P_s(\texttt{ab})=\{1\}$, so this case is not vacuous.
+\end{remark}
+
+\section{Exact summary merge}\label{sec:merge}
+Let $A,B$ have lengths $m,n>0$, and write $\ell_L(d)=\operatorname{LCP}(\operatorname{rev}(A)[d..],B)$ and $\ell_R(d)=\operatorname{LCP}(B[d..],\operatorname{rev}(A))$. The suffix palindrome lengths of $AB$ are the disjoint union of
+\begin{align*}
+&P_s(B);\\
+&\{2n-d:d\in P_p(B),\ \max(1,n-m)\le d<n,\ \ell_R(d)\ge n-d\};\\
+&\{2n:m\ge n,\ \ell_L(0)\ge n\};\\
+&\{2n+d:d\in P_s(A),\ 1\le d\le m-n,\ \ell_L(d)\ge n\}.
+\end{align*}
+Indeed a suffix crossing the boundary has parts of lengths $a$ and $n$. When $a<n$, removing $a$ matched symbols from both ends leaves a palindromic prefix of $B$ of length $d=n-a$; when $a>n$ the remaining core is a palindromic suffix of $A$ of length $d=a-n$; equality is the empty-core case. The reverse argument constructs each palindrome. The four sets lie in the disjoint length ranges $[1,n]$, $[n+1,2n-1]$, $\{2n\}$ and $[2n+1,\infty)$, so the union is disjoint. Prefixes follow by applying the same rule to $\operatorname{rev}(B)\operatorname{rev}(A)$.
+
+\begin{lemma}[Crossing maximum]\label{crossmax}
+$\operatorname{LP}(AB)=\max(\operatorname{LP}(A),\operatorname{LP}(B),C_L,C_R)$, where
 \[
-p+q<W\le W+\gcd(p,q).
+C_L=\max_{d\in P_s(A)\cup\{0\}}\bigl[d+2\min(m-d,n,\ell_L(d))\bigr],\qquad
+C_R=\max_{d\in P_p(B)\cup\{0\}}\bigl[d+2\min(n-d,m,\ell_R(d))\bigr].
 \]
-By Fine--Wilf \cite{FW65}, $\gcd(p,q)$ is a period of $w$; minimality of $p$ gives $p=\gcd(p,q)$, hence $p\mid q$. Conversely, every multiple $kp<W$ is a period, so $W-kp$ is a border of $w$; a border of a palindrome is a palindrome, so each $W-kp\ge L$ is a palindromic suffix length. Hence the layer set is $\{W-kp: W-kp\ge L\}$, an AP. Reversing the string gives the prefix statement. The hypothesis $L>W/2$ is essential and follows from $W<2L$.
+\end{lemma}
+\begin{proof}
+A crossing palindrome with $a$ symbols in $A$ and $b$ in $B$ has, when $a\ge b$, a core of length $d=a-b\ge0$ that is a palindromic suffix of $A$ (empty when $d=0$), extended by $b\le\min(m-d,n,\ell_L(d))$ matched symbols on each side; conversely every such $b$ gives a palindrome of length $d+2b$. The case $a\le b$ is symmetric with $C_R$.
+\end{proof}
+The term $d=0$ is \emph{not} an element of any AP and must be evaluated separately, with the single call $\ell_L(0)=\operatorname{LCP}(\operatorname{rev}(A),B)$, which row three of the table already needs. Omitting it is an error: for $A=\texttt{ab}$, $B=\texttt{bc}$ we have $P_s(A)=P_p(B)=\{1\}$ with $\ell_L(1)=\ell_R(1)=0$, so the AP terms give $1$, whereas $\operatorname{LP}(\texttt{abbc})=2$ comes from $d=0$: $2\min(2,2,\operatorname{LCP}(\texttt{ba},\texttt{bc}))=2$. Hence $C_L$ is the maximum of the $d=0$ term and, for each AP of $P_s(A)$, of at most five candidates by Lemma~\ref{five}, or one by Remark~\ref{singleton}.
+
+\paragraph{Collection calls and boundary cases.} Every LCP above compares two suffixes of node strings. A suffix $X[d..]$ is obtained by $\texttt{split}(X,d)$, which~\cite[\S3]{GKK} defines only for $1\le d<|X|$, and the collection contains no empty string. We therefore treat $d=0$ as $X$ itself and $d=|X|$ as the empty suffix, whose LCP with anything is $0$ without a call; when $e=|U|$ or $g=|V|$ in Lemma~\ref{family} the third branch's extra LCP is likewise $0$. These cases cost no call and change no bound. The base cases are a leaf $c$, with $P_s=P_p=\{1\}$ and $\operatorname{LP}=1$, and the empty tree, which is the identity of the merge.
+
+The filters and candidates process each input AP using at most four exact LCPs, or one for a singleton, and produce at most one AP or singleton per filter.
+
+\begin{lemma}[Canonicalisation]\label{canon}
+Given $r$ APs whose union is exactly $P_s(X)$, the canonical dyadic AP representation is computable without enumerating members in $O((r+1)\log N)$ word operations, allowing overlapping APs.
+\end{lemma}
+\begin{proof}
+Intersect each AP with each layer it meets in constant time per intersection. Within a layer find the minimum $a$, maximum $b$, and, when $a<b$, the second smallest distinct element $z$ by considering each piece's first element greater than $a$. By Lemma~\ref{dyadic}, the layer is the AP from $a$ to $b$ with step $z-a$. A singleton is output separately. There are $O(\log N)$ layers and at most $r$ restrictions per layer.
+\end{proof}
+In V4.0 and V4.1 a node summary stores $P_s,P_p,\operatorname{LP}$ and persistent handles for the string and its reverse; V4.2 removes the handles (Section~\ref{sec:v42}). Each set contains $O(\log N)$ APs. Merging two summaries therefore uses $O(\log N)$ collection LCP/split calls and $O(\log^2N)$ arithmetic operations; the handles for $AB$ and its reverse use two concatenations. Reversal swaps the handles and the two AP sets, while $\operatorname{LP}$ is unchanged.
+
+\section{Treap depth and the operation bound}\label{sec:depth}
+Logically push lazy reversal flags before interpreting the tree. Mirroring a subtree reverses its in-order sequence while preserving heap order, so the logical tree remains the unique Cartesian tree of the current sequence and attached distinct priorities. Split and merge preserve the same invariant. Although merge compares priorities, its \emph{semantic sequence} is determined by its input sequences, and split's semantic result is determined by the requested rank. Induction therefore shows that an oblivious sequence of positional edits permutes and selects element identities independently of their priorities. At every externally specified time, the priorities in the current order are independent and identically distributed, so the usual random-treap height bound applies. Partial trees arising from rank splits are Cartesian trees on fixed subintervals of that order; a constant number of cuts and joins per operation requires a simultaneous bound for these and the fixed intermediate semantic sequences, obtained by a union bound over polynomially many such sequences. The same reasoning does not cover a priority-adaptive choice of operations.
+
+\begin{theorem}[Operation bound]\label{opbound}
+In the model of Section~\ref{sec:model}, using the persistent collection of~\cite{GKK}, every listed operation costs $O(\log^3 N)$, simultaneously for all operations of the execution with high probability. Answers are always exact.
+\end{theorem}
+\begin{proof}
+Condition on the two high-probability events already established: no collection call fails (Section~\ref{sec:model}), and every tree visited during the execution has depth $O(\log N)$ (Section~\ref{sec:depth}). Each edit or interval query performs constantly many treap splits, joins and flips, so it visits $O(\log N)$ nodes. Each visited node recomputes its summary once. By Lemma~\ref{canon} and the paragraph after it, one merge issues $O(\log N)$ collection calls and performs $O(\log^2N)$ word operations; by (G1) and (G2) each call costs $O(\log N)$, so a merge costs $O(\log^2N)$. A flip costs $O(1)$. Multiplying by the path length gives $O(\log^3N)$ per operation. Exactness holds unconditionally: the merge equations of Sections~\ref{sec:comb} and~\ref{sec:merge} are identities, and \texttt{LCP} answers are exact by (G2), so randomness affects only running time.
+\end{proof}
+The bound is per operation, but the high-probability guarantee is for the whole execution: $N$ is a global length bound over at most $N^c$ operations, with $c$ fixed in advance. The adversary must be oblivious. Since persistent handles are never reclaimed, this theorem by itself gives no space bound; Section~\ref{sec:space} adds one.
+
+\section{Space}\label{sec:space}
+The time bound of Theorem~\ref{opbound} holds for different space budgets. The table lists the versions in the order they are proved; Theorem~\ref{opbound} itself is V4.0.
+
+\begin{center}
+\begin{tabular}{llll}
+\hline
+Version & Time per operation (whp) & Space (words) & Where\\
+\hline
+V4.0 & $O(\log^3N)$ worst case & unbounded, $+O(\log^3N)$ per operation & Thm.~\ref{opbound}, Lem.~\ref{spaceop}\\
+V4.1 & $O(\log^3N)$ amortised & $O(N\log^2N)$ & Thm.~\ref{space}\\
+V4.1$'$ & $O(\log^4N)$ amortised & $O(N\log N)$ & Remark after Thm.~\ref{space}\\
+V4.2 & $O(\log^3N)$ amortised & $O(N)$ expected; $O(N\log N)$ always & Thm.~\ref{space2}\\
+\hline
+\end{tabular}
+\end{center}
+Here $N$ is the global length bound. Since the text alone needs $\Omega(n)$ words when $n=\Theta(N)$, V4.2 is optimal up to a constant factor in that regime. All four versions give the same exact answers.
+
+\subsection{V4.0: no space bound}
+The collection of~\cite{GKK} is persistent and reclaims nothing, and~\cite[App.~A]{GKK} states that the space usage is not analysed there. Theorem~\ref{opbound} therefore comes with no space bound: the space grows with the number of operations, at the rate charged by the next lemma.
+
+\begin{lemma}[Space charged per operation]\label{spaceop}
+One operation increases the space by $O(\log^3N)$ words, and the live part of the structure occupies $O(n\log N)$ words when the current length is $n$.
+\end{lemma}
+\begin{proof}
+By~\cite[App.~A]{GKK} an update taking time $\tau$ increases the space by $O(\tau)$, and a query may be executed so that it leaves no permanent trace: it records the cells it modifies and reverts them afterwards, which is legitimate because none of the bounds of~\cite{GKK} are amortised. Hence \texttt{LCP} consumes no space, and every update, \texttt{make\_string} included, consumes space proportional to its time. An operation visits $O(\log N)$ nodes and each merge issues $O(\log N)$ \texttt{split} and \texttt{concat} calls, each running in $O(\log N)$ time and therefore costing $O(\log N)$ words. An insertion or replacement adds one \texttt{make\_string} of length one, costing $O(\log N)$. This gives $O(\log^3N)$ per operation.
+
+For the live part: the treap has $n$ nodes, each storing $O(\log N)$ AP triples by Lemma~\ref{dyadic} together with a length, an $\operatorname{LP}$ value and two handles, so $O(n\log N)$ words. The $2n$ live strings were each created by one call of cost $O(\log N)$, contributing $O(n\log N)$ more.
+\end{proof}
+
+\subsection{V4.1: periodic full rebuilding}
+\begin{theorem}[Space bound]\label{space}
+Rebuilding the whole structure from scratch every $B=\lceil N/\log N\rceil$ operations yields space $O(N\log^2N)$ words, while the time per operation becomes $O(\log^3N)$ amortised, with high probability as in Theorem~\ref{opbound}.
+\end{theorem}
+\begin{proof}
+A rebuild reads the current string from the treap in $O(n)$ time, starts a fresh instance of the collection, and recreates the structure: build a treap on $n$ leaves with fresh priorities in $O(n)$ time, then compute the $n$ summaries bottom-up at $O(\log^2N)$ each. Including the initial dummy \texttt{make\_string} of length $N$ needed for the failure probability in Section~\ref{sec:model}, a rebuild costs $O(N+n\log^2N)=O(N\log^2N)$ time and the same order of space. Amortised over the $B$ operations of a period, this is $O(N\log^2N/B)=O(\log^3N)$ per operation, which does not change the bound of Theorem~\ref{opbound}.
+
+For the space: at any moment the current instance holds what the last rebuild created, $O(N\log^2N)$ words since an update's space is bounded by its time, and the residue of the operations since then, $O(B\log^3N)=O(N\log^2N)$ words by Lemma~\ref{spaceop}. The treap holds $O(n\log N)$ words. The old instance is released the moment the new one is complete, so at most two instances coexist. The total is $O(N\log^2N)$.
+
+The probabilistic arguments survive the rebuilds. The rebuild times are fixed in advance (every $B$ operations), so they do not depend on any random choice. Each rebuild draws fresh priorities and uses a fresh collection instance with fresh coins, both independent of everything before. Hence the conditioning arguments of Sections~\ref{sec:model} and~\ref{sec:depth} apply within each period, and the union bound over all $N^{O(1)}$ collection calls and treap states of the whole execution is unchanged.
+\end{proof}
+
+\begin{remark}[V4.1$'$]
+The exponent is tied to the rebuild period. A smaller $B$ reduces the residue but raises the amortised rebuild cost: $B=\lceil N/\log^2N\rceil$ gives space $O(N\log N)$ and time $O(\log^4N)$ amortised. V4.2 below reaches $O(N)$ without paying this price.
+\end{remark}
+
+\subsection{V4.2: handle-free summaries}\label{sec:v42}
+The space of V4.0 and V4.1 has two sources: every node keeps two handles, and every merge creates $O(\log N)$ permanent strings. V4.2 removes both. The treap is unchanged, so Section~\ref{sec:depth} applies verbatim; only what a node stores and how an LCE is issued change.
+
+\paragraph{The construction.} A node stores $(|X|,P_s(X),P_p(X),\operatorname{LP}(X))$, its priority and its child pointers, and no handle. The algorithm keeps exactly two \emph{current roots} in the collection: handles of the current text $S$ and of $\operatorname{rev}(S)$. The collection is still persistent, so the earlier versions of these two strings, the dummy string of Section~\ref{sec:model} and the strings for inserted characters remain in it; their space is charged below as residue.
+
+During one operation, every tree that exists spells a concatenation of $O(1)$ \emph{fragments}: intervals of the old $S$, of the old $\operatorname{rev}(S)$, or a new character. This is the mirror-pair closure. A split cuts one fragment and so increases the list size by at most one; a flip reverses the list and exchanges $S$-intervals with $\operatorname{rev}(S)$-intervals via $\operatorname{rev}(S[a..b))=\operatorname{rev}(S)[n-b..n-a)$, keeping its size; a merge concatenates two lists. With $O(1)$ of these per operation the lists stay of size $O(1)$. The table below gives the bound per operation for $S$ of length $n$; for $\operatorname{rev}(S)$ the list is the reverse of the one shown, with the two sources exchanged.
+
+\begin{center}
+\begin{tabular}{lll}
+\hline
+Operation & New text as fragments & Fragments\\
+\hline
+replace at $i$ & $S[0..i)\,c\,S[i{+}1..n)$ & 3\\
+insert at $i$ & $S[0..i)\,c\,S[i..n)$ & 3\\
+delete at $i$ & $S[0..i)\,S[i{+}1..n)$ & 2\\
+reverse $[l,r)$ & $S[0..l)\,\operatorname{rev}(S)[n{-}r..n{-}l)\,S[r..n)$ & 3\\
+rotate $[l,r)$ by $k$ & $S[0..l)\,S[r{-}k..r)\,S[l..r{-}k)\,S[r..n)$ & 4\\
+query $[l,r)$ & unchanged & 1\\
+\hline
+\end{tabular}
+\end{center}
+Every intermediate tree spells a contiguous sublist of the list for the final text, so it has at most one more fragment, at most $5$; this matches the largest list observed by the validation program of Section~\ref{sec:valid}.
+
+When a node is recomputed, the recursion knows its offset inside the tree being built, so its own string, and its children's, are sublists computed by offset arithmetic, without any collection call. Each child's summary is lent this fragment description for the duration of the merge and the description is then discarded. At the end of an operation that changes the text, the new $S$ and $\operatorname{rev}(S)$ are spliced from the old ones with $O(1)$ \texttt{split} and \texttt{concat} calls; this is the only change to the current roots. An insertion or replacement also creates its new character by one \texttt{make\_string} of length one.
+
+\paragraph{Fragment LCE.} Lemma~\ref{family} and the merge of Section~\ref{sec:merge} need $\operatorname{LCP}$ of two suffixes of fragment strings. With $O(1)$ fragments per side, this is evaluated fragment pair by fragment pair: extract the two current intervals of $S$ or $\operatorname{rev}(S)$ by two \texttt{split} calls each, compare them by one \texttt{LCP}, and advance to the next pair only if the whole shorter interval matched. A fragment holding a new character uses the handle created for it by the operation. Hence one fragment LCE uses $O(1)$ collection calls.
+
+The space bound of V4.2 rests on the following lemma, and only V4.2 does: V4.0 and V4.1 issue \texttt{split} calls permanently and charge them as residue, so they need nothing beyond~\cite{GKK} as cited. The lemma is a generic rollback argument applied to a black box: it relies on the word RAM model of~\cite[App.~A]{GKK}, in which an algorithm's memory writes can be logged and undone, and not on any internal property of the GKK structure. A reader who prefers not to accept it should read V4.2's space bound as conditional on it.
+
+\begin{lemma}[Transactional calls]\label{transaction}
+A fragment LCE can be executed so that it leaves the memory of the collection exactly as before, in time $O(\log N)$, and the guarantees of Section~\ref{sec:model} continue to hold for all calls of the execution.
+\end{lemma}
+\begin{proof}
+\cite[App.~A]{GKK} observes that, because none of its bounds are amortised, the cells modified by a query can be recorded and reverted afterwards. We apply the same device to the $O(1)$ calls of one fragment LCE treated as a single transaction: every cell write is logged, at $O(1)$ extra cost, and undone at the end. The time is therefore of the same order as the calls themselves, $O(\log N)$ by (G1) and (G2), and the memory afterwards is identical to the memory before, so the transaction occupies no space once finished.
+
+Random bits drawn inside a transaction are discarded together with the cells that store them; later calls draw fresh bits. Since the model of~\cite[App.~A]{GKK} supplies each random integer freshly, the permanent state after any prefix of the execution has the same distribution as if the transactions had never run.
+
+For the probabilistic guarantees, consider the call sequence as in Section~\ref{sec:model}. Each argument of each call, including calls inside a reverted transaction, is a function of the operations, the priorities and earlier \texttt{LCP} answers, which are exact; so the whole sequence is fixed relative to the collection's coins. A call inside a transaction is applied to a memory state reached by a fixed sequence: the permanent calls so far followed by the earlier calls of the same transaction. Hence the per-call guarantee of (G1) applies to it, with $t\ge N$ because of the dummy string. The union bound of Section~\ref{sec:model} over the $N^{O(1)}$ calls is unchanged.
+\end{proof}
+This lemma extends the remark of~\cite[App.~A]{GKK} from a single query to a transaction of $O(1)$ calls; the extension is ours.
+
+\begin{lemma}[Treap storage]\label{fringe}
+At any fixed time between operations with $n$ elements, the expected number of AP triples stored over all nodes is $O(n)$. Deterministically it is $O(n\log N)$.
+\end{lemma}
+\begin{proof}
+The deterministic bound is Lemma~\ref{dyadic}. A node whose subtree has $k$ elements stores at most $2(\lfloor\log_2k\rfloor+1)$ triples by the same lemma. By Section~\ref{sec:depth} the tree at a fixed time is a Cartesian tree of $n$ positions with i.i.d.\ priorities. A block of $k$ consecutive positions not touching either end is exactly the position set of a subtree iff its two outer neighbours have the two largest priorities among these $k+2$ elements, an event of probability $2/((k+1)(k+2))$. A block touching one end, with $k<n$, needs only its single neighbour to be the maximum among $k+1$, probability $1/(k+1)$, and there are at most two such blocks for each $k$. The whole sequence is the root's subtree. Summing,
+\[
+\mathbb{E}\sum_{v}2(\log_2|T_v|+1)\le\sum_{k=1}^{n}\Bigl(\frac{2n}{(k+1)(k+2)}+\frac{2}{k+1}\Bigr)2(\log_2k+1)+2(\log_2n+1)=O(n)+O(\log^2n).
+\]
+The first sum is $O(n)$ because $\sum_k\log k/k^2$ converges.
+This is the classical fringe count for random binary search trees~\cite{Aldous,Devroye}; the derivation is included for completeness.
+\end{proof}
+
+\begin{theorem}[V4.2]\label{space2}
+Rebuild only the collection every $B=\lceil N/\log N\rceil$ operations. Then every operation costs $O(\log^3N)$ amortised, simultaneously with high probability, and the space is $O(N)$ words in expectation at every fixed time between operations, and $O(N\log N)$ words always.
+\end{theorem}
+\begin{proof}
+\emph{Time.} An operation visits $O(\log N)$ nodes; each recomputation runs the merge of Section~\ref{sec:merge}, which issues $O(\log N)$ fragment LCEs at $O(\log N)$ each by Lemma~\ref{transaction}, plus $O(\log^2N)$ word operations and $O(1)$ offset computations. The final splice is $O(1)$ calls. This is $O(\log^3N)$ per operation as in Theorem~\ref{opbound}. A rebuild reads the text by an in-order traversal of the treap in $O(n)$ time, starts a fresh instance with fresh coins, creates the dummy string of length $N$ and the strings $S$ and $\operatorname{rev}(S)$ by \texttt{make\_string}, in $O(N)$ time by~\cite[Thm.~6.12]{GKK}. The treap and its priorities are not touched, so Section~\ref{sec:depth} is unaffected. Amortised over $B$ operations the rebuild adds $O(\log N)$.
+
+\emph{Space.} By~\cite[App.~A]{GKK} the space of the collection grows by at most the time of its updates. Within a period the instance holds what the rebuild created, $O(N)$ including the dummy, plus per operation one splice of $O(1)$ calls and at most one \texttt{make\_string} of length one, $O(\log N)$ together, so $O(B\log N)=O(N)$ over the period; transactions leave nothing by Lemma~\ref{transaction}. At most two instances coexist, during a rebuild. The treap holds $O(n)$ words of pointers, lengths, $\operatorname{LP}$ values and priorities, plus the AP triples, $O(n)$ in expectation and $O(n\log N)$ always by Lemma~\ref{fringe}. With $n\le N$ the total is $O(N)$ in expectation and $O(N\log N)$ always.
+
+\emph{Probability.} The rebuild times are fixed in advance and each instance uses fresh coins, so the arguments of Section~\ref{sec:model} apply within each period, as in Theorem~\ref{space}.
 \end{proof}
 
 \begin{remark}
-The AP structure of palindromic suffixes is the \emph{series-link} property of the eertree \cite{RS15}; Lemma~\ref{lem:dyadic} is a dyadic-layer restatement with a self-contained proof. We use the dyadic form because it composes cleanly with Treap summaries. This is not a new combinatorial discovery, and the paper does not claim it as one.
+Two refinements are not claimed. First, the expectation in Theorem~\ref{space2} could probably be upgraded to a high-probability bound by a concentration inequality for additive functionals of random search trees~\cite{Kapur}; we have not checked the toll-function conditions. Second, the rebuild adds only $O(\log N)$ amortised time, far below the operation cost, so a worst-case version by global rebuilding~\cite{Overmars} looks routine, but it requires snapshotting a text that keeps changing during the incremental rebuild, and we have not written this out. The dummy string is the only reason the space is stated in terms of $N$ rather than the current length $n$.
 \end{remark}
 
-\begin{corollary}\label{cor:apcount}
-$\PSuf(X)$ and $\PPref(X)$ are each representable by at most $\lfloor\log_2|X|\rfloor+1$ APs.
-\end{corollary}
-
-Section~\ref{sec:aplower} shows that this upper bound is tight in the worst case.
-
-\subsection{LCE on a periodic family}
-
-\begin{lemma}[Periodic-family LCE]\label{lem:periodic}
-Let $U$ have an AP of palindromic prefix lengths $d=d_0+kp$, $0\le k\le t$, $t\ge1$. Put
-\[
-Q=U[d_0..d_0+p),\qquad e=p+\LCP(U[p..],U),\qquad g=\LCP(V,Q^\infty),
-\]
-where $Q^\infty$ is the infinite repetition of $Q$. Then for every $d$ in the AP,
-\begin{equation}\label{eq:ell}
-\ell(d)=\LCP(U[d..],V)=
-\begin{cases}
-e-d, & e-d<g,\\
-g, & e-d>g,\\
-g+\LCP(U[e..],V[g..]), & e-d=g.
-\end{cases}
-\end{equation}
-\end{lemma}
-
-\begin{proof}
-Consecutive palindromic prefixes $U[0..d_0+(k-1)p)$ and $U[0..d_0+kp)$ force $p$ to be a period of the longer one: the shorter is both a prefix and, being a palindrome, a suffix, hence a border. Iterating, $p$ is a period of $U[0..d_0+kp)$ for every $k$ in the range. From the two smallest members, for $0\le i<p$,
-\[
-U[d_0+i]=U[d_0+p-1-(d_0+i)]=U[p-1-i],
-\]
-so $Q=\rev(U[0..p))$. By definition of $e$, $U[0..e)$ is the longest $p$-periodic prefix of $U$ starting at $0$; for every $d$ in the AP, $U[d..e)$ agrees with $Q^\infty$. Write $a=e-d$. Both $U[d..]$ and $V$ agree with $Q^\infty$ up to $a$ and $g$ characters, respectively; the smaller of the two exits the periodic region first. If $a<g$, the mismatch is in $U$ at offset $a$; if $a>g$, it is in $V$ at offset $g$; if $a=g$, both periodic regions end simultaneously and one genuine LCE decides the remaining match. This gives \eqref{eq:ell}. The quantity $g$ is obtained with one LCE: compute $h=\LCP(U[d_0..],V)$; if $h<e-d_0$, then $g=h$; otherwise $g=p+\LCP(V[p..],V)$. Hence each AP costs $O(1)$ LCEs.
-\end{proof}
-
-\begin{remark}[A correction]\label{rem:qcorr}
-The correct identity is $Q=\rev(U[0..p))$. An earlier draft wrote $Q=U[0..p)$ and justified it by $p\mid d_0$; that implication is false. The true condition for $Q=U[0..p)$ is that $U[0..p)$ itself be a palindrome. Counterexample: $U=\texttt{aaa}$, $d_0=1$, $p=2$ gives $Q=\texttt{aa}=U[0..2)$ although $2\nmid1$. The algorithm uses the reversed definition, so its correctness is unaffected.
+\begin{remark}[Related persistent structure]
+The FeAVL structure of~\cite{FeAVL} is a fully persistent dynamic LCE structure based on path-copied AVL trees: worst-case $O(\log n)$ updates creating $O(\log n)$ new permanent nodes each, and LCE in $O(\log n+\log^2\ell)$ worst-case time with high probability. Substituting it for~\cite{GKK} would bound space directly but would raise the LCE cost, so it does not preserve $O(\log^3N)$; we cite it as an alternative trade-off and do not use it.
 \end{remark}
 
-\subsection{At most five candidates per AP}
-
-\begin{lemma}[Five-candidate lemma]\label{lem:five}
-For a fixed AP and $\ell(d)$ as in Lemma~\ref{lem:periodic}, the maximum of
-\[
-f(d)=d+2\min\bigl(m-d,n,\ell(d)\bigr)
-\]
-over the AP is attained at one of at most five positions: the first and last AP terms, the AP terms immediately to the left and right of $x=e-\min(n,g)$, and the equality point $d=e-g$ if it belongs to the AP.
-\end{lemma}
-
-\begin{proof}
-Since $\ell(d)\le m-d$ and $e\le m$, whenever $e-d\ne g$ we have $\ell(d)=\min(e-d,g)$, hence $f(d)=d+2\min(e-d,n,g)$. Let $h=\min(n,g)$ and $x=e-h$. For $d<x$, the term $\min(e-d,n,g)$ equals $h$ only if $d\le e-h=x$, where $f(d)=d+2\min(n,g)$ is increasing in $d$; more precisely, the minimum switches once, so $f$ is increasing before $x$ and decreasing after $x$. On a discrete AP, the maximum of a unimodal function is at an endpoint or at one of the two AP terms adjacent to the mode. The equality point $d=e-g$ must be checked separately because it uses the third branch of \eqref{eq:ell}; if two regime changes coincide, it may exceed both one-sided limits. All other points are covered by the monotonicity. Duplicates are removed.
-\end{proof}
-
-\subsection{Filter operators}
-
-\begin{lemma}[Fixed threshold]\label{lem:filterK}
-For $F_K=\{d\in\AP:\ell(d)\ge K\}$: if $g\ge K$, then $F_K=\AP\cap(-\infty,e-K]$; if $g<K$, then $F_K\subseteq\{e-g\}$ and only the equality point can qualify, decided by the third branch.
-\end{lemma}
-
-\begin{proof}
-If $g\ge K$, then on the non-equality part $\ell(d)=\min(e-d,g)\ge K$ iff $e-d\ge K$, i.e.\ $d\le e-K$; the equality point also satisfies this condition because $e-(e-g)=g\ge K$. If $g<K$, the second branch gives $\ell(d)=g<K$, and the first gives $\ell(d)=e-d$; at the equality point $e-d=g<K$ as well. The first branch can exceed $K$ only if $e-d>K$, but then $\ell(d)=e-d$ would be the first branch with $e-d>g$, contradiction. Hence only the equality point, using the third branch, can qualify.
-\end{proof}
-
-\begin{lemma}[Variable threshold]\label{lem:filterV}
-For $F_L=\{d\in\AP:\ell(d)\ge L-d\}$: if $e\ge L$, then $F_L=\AP\cap[L-g,\infty)$; if $e<L$, only the equality point $e-g$ can qualify.
-\end{lemma}
-
-\begin{proof}
-On the non-equality part, $\ell(d)=\min(e-d,g)$. The condition is $\min(e-d,g)\ge L-d$, i.e.\ $e-d\ge L-d$ and $g\ge L-d$, which reduce to $e\ge L$ and $d\ge L-g$. If $e<L$, the first branch cannot satisfy the condition; the second gives $g\ge L-d$, but combined with $e<L$ this forces $e-d<L-d\le g$, which is the first branch again, a contradiction unless we are at the equality point. Hence only $e-g$ remains.
-\end{proof}
-
-\subsection{Merging the summaries}
-
-\begin{table}[t]
-\centering
-\caption{The four disjoint length ranges of $\PSuf(AB)$, with $|A|=m$ and $|B|=n$. The prefix table is symmetric.}
-\label{tab:psuf}
-\begin{tabular}{@{}llll@{}}
-\toprule
-Source & Parameter & Condition & Output length \\
-\midrule
-Entirely in $B$ & $d\in\PSuf(B)$ & --- & $d\in[1,n]$ \\
-Core in $B$ & $d\in\PPref(B)$ & $\max(1,n-m)\le d\le n-1$, $\ell_R(d)\ge n-d$ & $2n-d\in[n+1,2n-1]$ \\
-Empty core & $d=0$ & $m\ge n$, $\ell_L(0)\ge n$ & $2n$ \\
-Core in $A$ & $d\in\PSuf(A)$ & $\ell_L(d)\ge n$ & $2n+d\ge2n+1$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\begin{theorem}[Summary merge]\label{thm:merge}
-The set $\PSuf(AB)$ is exactly the union of the four ranges in Table~\ref{tab:psuf}. The set $\PPref(AB)$ is obtained by applying the same statement to $\rev(B)\rev(A)$. Every input AP passes through exactly one of the filters of Lemmas~\ref{lem:filterK}--\ref{lem:filterV}, each producing $O(1)$ output APs; hence both summaries have $O(\log n)$ APs.
-\end{theorem}
-
-\begin{proof}
-A palindromic suffix of $AB$ either lies entirely in $B$ or crosses the concatenation point. In the crossing case its core lies in $B$ or in $A$. If the core of length $d$ lies in $B$, it is a palindromic prefix of $B$; the extensions have length $n-d$ on each side, so the total is $d+2(n-d)=2n-d$, and the extension cannot exceed $A$, giving $d\ge n-m$. The case $d=0$ is the empty core and is listed separately. If the core lies in $A$, it is a palindromic suffix of $A$; the extension must cover all of $B$, so the total is $d+2n$, and the condition is $\ell_L(d)\ge n$. The four output ranges are disjoint, so no length is produced twice. The conditions $\ell_L(d)\ge n$ and $\ell_R(d)\ge n-d$ are exactly the filters of Lemmas~\ref{lem:filterK} and~\ref{lem:filterV}. Applying the argument to the reversed string gives the prefix statement.
-\end{proof}
-
-\subsection{The short-kernel endpoint formula}\label{sec:endpoint}
-
-The short-kernel region is the part of the merge in which the crossing palindrome has a short palindromic prefix of $B$ as its core. A naive treatment inspects every candidate occurrence, which costs $O(\log^2 n)$ per node. The following formula reduces it to $O(1)$ LCEs per candidate AP.
-
-Let $S$ have length $n$, let $X=S[0..x)$ occur in a fragment $Y$ of $S$ with $|Y|<2|X|$, and suppose the occurrence positions form an AP $V=\{a+ig\}$ with $g\le|X|$. Define
-\[
-T=\{\,p\in V:\ \LCE_S(0,p)\ge n-p\,\}.
-\]
-This is exactly the set of occurrences whose suffix $S[p..n)$ is a prefix of $S$, i.e.\ the border condition relevant to the short-kernel merge.
-
-Define the two period-extension quantities
-\[
-E_L=g+\LCE_S(0,g),\qquad E_R=a+g+\LCE_S(a,a+g).
-\]
-Both are absolute positions. Since $S[0..g)=S[a..a+g)$, the two periodic regions have the same phase; for $p=a+ig$, the left region supplies $E_L$ characters, the right supplies $E_R-p$, and the physical bound is $n-p$. Hence, whenever the three quantities have a unique minimum,
-\begin{equation}\label{eq:min}
-\LCE_S(0,p)=\min\{E_L,\ E_R-p,\ n-p\}.
-\end{equation}
-
-\begin{theorem}[Endpoint formula]\label{thm:endpoint}
-With the notation above,
-\[
-T=
-\begin{cases}
-\{\,p\in V:\ p\ge n-E_L\,\}, & E_R\ge n,\\
-\varnothing, & E_R<n,
-\end{cases}
-\]
-together with at most one \emph{special point} $p_0=E_R-E_L$. If $E_R<n$, only $p_0$ can possibly belong to $T$. If $p_0\in V$, it is decided by one additional genuine LCE. Equivalently, the whole AP is filtered by two period-endpoint LCEs plus at most one special-point LCE.
-\end{theorem}
-
-\begin{proof}
-The condition is $\LCE_S(0,p)\ge n-p$. Under \eqref{eq:min} it is equivalent to $E_L\ge n-p$ and $E_R-p\ge n-p$. The second inequality is $E_R\ge n$, independent of $p$; the first is $p\ge n-E_L$. The minimum formula can fail only when two of the three arguments are equal. The equation $E_R-p=n-p$ is $E_R=n$, which either holds for all $p$ or none. The equation $E_L=E_R-p$ determines at most one $p$, namely $E_R-E_L$, and at that point both periodic regions break simultaneously and may continue to match; one extra LCE decides it. The case $E_R<n$ makes the second inequality impossible except at the equality point, so only $p_0$ remains.
-\end{proof}
-
-\begin{remark}[The equality boundary is real]\label{rem:endpoint}
-The special point cannot be dropped. For the period-$12$ string
-\[
-S=\texttt{ababccccababccccababccccabab},
-\]
-and $X=\texttt{abab}$ with $V=\{10,12\}$, at $p=12$ one has $E_L=4$, $E_R=16$, and $E_R-p=4$, yet $\LCE(0,12)=18$, not $4$: both periodic endpoints occur simultaneously and the two mismatches cancel. An earlier version of this work treated the minimum as always valid and was wrong at exactly this point.
-\end{remark}
-
-Applying Theorem~\ref{thm:endpoint} to the short-kernel region costs one dynamic IPM query (to obtain the candidate APs, $O(\log n)$ by \cite{DK24}) plus $O(1)$ LCEs per AP. This is the step that makes the short-kernel cost $O(\log n)$ rather than $O(\log^2 n)$ per node.
-
-\subsection{The long-kernel region}
-
-The complementary region, where the core lies in $A$, has the exact description
-\[
-\{\,d+2n:\ d\in\PSuf(A),\ d\le m-n,\ \LCP(\rev(A)[d..],B)\ge n\,\}.
-\]
-For a dyadic layer of $\PSuf(A)$ represented as $\{d_0+kp\}$, put $U=\rev(A)$ and apply Lemma~\ref{lem:periodic}: with
-\[
-e=p+\LCP(U[p..],U),\qquad h=\LCP(U[d_0..],B),\qquad
-g=\begin{cases}h,& h<e-d_0,\\ p+\LCP(B[p..],B),& h\ge e-d_0,\end{cases}
-\]
-the matching length is $\ell(d)=\min(e-d,g)$ except at the single equality point. Hence each layer is filtered in $O(1)$ LCEs. The number of layers can be $\Theta(\log n)$; Section~\ref{sec:aplower} constructs such a case.
-
-\subsection{The number of APs is $\Theta(\log n)$}\label{sec:aplower}
-
-\begin{theorem}[AP lower bound]\label{thm:zlower}
-Define $Z_0=\texttt{a}$ and $Z_{k+1}=Z_k\,\texttt{b}^{k+1}\,Z_k$. Let $L_k=|Z_k|=3\cdot2^k-k-2$. Then
-\[
-\PSuf(Z_k)=\{L_0,L_1,\ldots,L_k\},
-\]
-and this set contains no three-term arithmetic progression. Hence any exact partition of $\PSuf(Z_k)$ into APs needs at least $\lceil(k+1)/2\rceil=\Omega(\log|Z_k|)$ APs. Together with Corollary~\ref{cor:apcount}, the worst-case AP count is $\Theta(\log n)$.
-\end{theorem}
-
-\begin{proof}
-First, $Z_k$ is a palindrome with both ends `a', and every $Z_j$ is a suffix of $Z_k$; hence the $L_j$ are palindromic suffix lengths. For the converse, let $r$ be a proper border of $Z_k=X\texttt{b}^kX$ with $x=|X|$. If $r\le x$, then $r$ is a border of $X$, and induction gives $r\in\{L_0,\ldots,L_{k-1}\}$. If $r=x+t$ with $1\le t\le k$, the prefix and suffix of length $r$ are $X\texttt{b}^t$ and $\texttt{b}^tX$, whose first characters differ. If $r=x+k+u$ with $1\le u<x$, the prefix and suffix are $X\texttt{b}^kX[0..u)$ and $X[x-u..x)\texttt{b}^kX$. Since $X$ contains no run of $k$ consecutive `b's and starts and ends with `a', each of these strings has a unique maximal run of exactly $k$ `b's, at offset $x$ in the first and at offset $u$ in the second. Equality would force $x=u$, contradicting $u<x$. Hence the only borders are the $Z_j$, and since $Z_k$ is a palindrome, the same list gives the palindromic suffixes.
-
-For three indices $i<j<\ell$,
-\[
-L_\ell-L_j=3(2^\ell-2^j)-(\ell-j)\ge3\cdot2^j-1>3\cdot2^j-4\ge L_j-L_i,
-\]
-so the gaps strictly increase and no three terms form an AP. Any AP containing three distinct elements would contain a three-term AP, so each AP covers at most two elements; at least $\lceil(k+1)/2\rceil$ APs are necessary.
-\end{proof}
-
-\begin{proposition}[Long-kernel APs]\label{prop:pk}
-Put $P_0=\texttt{aa}$ and $P_{k+1}=P_k\texttt{b}P_k$; then $P_k$ is a palindrome of length $3\cdot2^k-1$. With $A=\texttt{b}P_k$ and $B=\texttt{b}$, every $\texttt{b}P_i\texttt{b}$ is a crossing palindromic suffix of $AB$ of length $3\cdot2^i+1$. These lengths contain no three-term AP, so the long-kernel region can contain $\Theta(\log n)$ APs.
-\end{proposition}
-
-\begin{proof}
-The identity $3\cdot2^i+1$ follows by induction. If three such lengths formed an AP, then $2^i+2^\ell=2^{j+1}$ for distinct $i<j<\ell$, which is impossible because the left side has two distinct binary ones and the right side has one. Hence no AP contains three of them.
-\end{proof}
-
-This refutes the earlier claim that the long-kernel region always has $O(1)$ APs. The LP pruning below survives, but it applies only to computing the maximum length, not to constructing the full summary.
-
-\section{The data structure}\label{sec:ds}
-
-\subsection{Node summary and invariants}
-
-Each node $v$ spanning a substring $S_v$ stores:
-\begin{itemize}[leftmargin=1.4em,itemsep=0.1em]
-\item $|S_v|$ and the subtree size;
-\item forward and reverse polynomial hashes of $S_v$;
-\item $L_v=\LP(S_v)$;
-\item the AP lists $P_v=\PSuf(S_v)$ and $Q_v=\PPref(S_v)$;
-\item a lazy reversal bit.
-\end{itemize}
-The \emph{summary invariant} is that these fields are exactly the quantities defined for $S_v$ in the current orientation. A reversal flag at $v$ means that the logical string is $\rev(S_v)$; the stored hashes are swapped and $P_v,Q_v$ exchanged when the flag is applied, so the invariant is maintained.
-
-\subsection{Merging two children}
-
-\begin{enumerate}[leftmargin=1.8em,itemsep=0.15em]
-\item \textbf{Internal answers.} $L=\max(L_{\mathrm{left}},L_{\mathrm{right}},C_L,C_R)$, using \eqref{eq:cross} on the two children.
-\item \textbf{Left crossing.} For each AP of $\PSuf(A)$, compute $e$ and $g$ by Lemma~\ref{lem:periodic}, evaluate the five candidates of Lemma~\ref{lem:five}, and keep the maximum. For the short-kernel part, use the endpoint formula of Theorem~\ref{thm:endpoint}.
-\item \textbf{Right crossing.} Symmetrically, using $\PPref(B)$ and the reversed orientation.
-\item \textbf{Suffix and prefix lists.} Generate the four ranges of Table~\ref{tab:psuf} from $\PSuf(B)$, $\PPref(B)$, the empty core, and the filtered $\PSuf(A)$; merge adjacent APs into the dyadic representation. Generate $\PPref(AB)$ symmetrically.
-\item \textbf{Hashes.} Concatenate the forward and reverse hashes.
-\end{enumerate}
-The two crossing evaluations share the per-AP preprocessing: the pair $(\rev(A),B,\PSuf(A))$ and its mirror each compute $e$ and $g$ once per AP. The archived implementation measures a reduction of about $42\%$ in LCE calls from this sharing.
-
-\subsection{Operations}
-
-A point update is two splits and two merges. An insertion or deletion is the same with a length change. A reversal is three splits, a flag toggle, and three merges. A cyclic shift is four splits and four merges in the rotated order. A whole-string query reads the root; an interval query is two splits, a read, and two merges. Since each split/merge visits $O(\log n)$ nodes and each node merge is charged in Section~\ref{sec:complexity}, the operation costs follow.
-
-\subsection{Correctness}
-
-\begin{theorem}[Correctness]\label{thm:correct}
-Assume LCE queries are answered exactly. Then every operation preserves the summary invariant, and every LPS query returns the length of a longest palindromic substring of the requested fragment.
-\end{theorem}
-
-\begin{proof}
-The proof is by induction on the structure of the Treap and on the operation sequence. For a leaf, the summary is trivially correct. For an internal node with children $A,B$, Theorem~\ref{thm:merge} gives exactly the suffix and prefix sets of $AB$, and Lemma~\ref{lem:cross} gives exactly the crossing maximum; the internal maxima are the children's by induction. Hence the parent summary is correct. Split and merge preserve the inorder sequence and recompute the summaries along the visited paths, so the invariant is restored. A reversal toggles the flag; the identity $\PSuf(\rev(X))=\PPref(X)$ and the hash swap preserve the summary. A cyclic shift is a composition of splits and merges. A query reads a summary that, by the invariant, stores the exact LPS length of the isolated fragment.
-\end{proof}
-
-The theorem is conditional on exact LCE. With hashing, it holds except with the collision probability analyzed in Section~\ref{sec:hash}; with an external oracle, it holds except for the oracle's failure probability.
-
-\subsection{LCE variants and their cost}\label{sec:lcevariants}
-
-\textbf{V1 (Treap hashing).} A hash of a fragment is extracted in $O(\log n)$ by a path traversal; an LCE is a binary search over $O(\log n)$ such extractions, so $\lambda=O(\log^2 n)$. This variant supports every operation of the model, including reversal and rotation, because the hashes are maintained by the Treap itself.
-
-\textbf{V2 (GKK).} The GKK oracle supports point substitutions, insertions, and deletions in $O(\log n)$ per update, and answers LCE in $O(\log n)$ whp. It does not list range reversal or cyclic shift among its updates. Using it gives $\lambda=O(\log n)$ and the stronger bound, but only for the operations the oracle supports.
-
-\textbf{V3 (conditional).} If an oracle with the same efficiency supported range reversal and cyclic shift, the stronger bound would extend to the full operation set. No such oracle is provided by \cite{GKK18,DK24}, and we do not assume one.
-
-\section{Complexity}\label{sec:complexity}
-
-\subsection{Per-node and per-path cost}
-
-Let $M$ be the number of nodes recomputed by one split or merge, $A$ the number of APs in a summary, $c$ the number of LCE calls per AP, and $\lambda$ the cost of one LCE. The cost of one split/merge is
-\[
-T_{\mathrm{sm}}=M\cdot(A\cdot c\cdot\lambda+R),
-\]
-where $R=O(\log n)$ is the cost of re-normalizing the output APs into dyadic form. We have $M=O(\log n)$ whp, $A=O(\log n)$ (Corollary~\ref{cor:apcount}), $c=O(1)$ (Lemma~\ref{lem:periodic} and Theorem~\ref{thm:endpoint}), and $R=O(\log n)$.
-
-\begin{theorem}[V1: self-contained hashing]\label{thm:v1}
-With LCE answered by binary search over Treap hashes ($\lambda=O(\log^2 n)$), every operation of the model costs
-\[
-O(\log^4 n)
-\]
-with high probability, up to the hash collision probability. The bound is unconditional in the data-structural sense: it uses no external dynamic-string oracle.
-\end{theorem}
-
-\begin{proof}
-Substituting $M=O(\log n)$, $A=O(\log n)$, $c=O(1)$, $\lambda=O(\log^2 n)$, and $R=O(\log n)$ into $T_{\mathrm{sm}}$ gives $O(\log^4 n)$ per split/merge. Each operation uses $O(1)$ split/merge calls, and the Treap depth is $O(\log n)$ whp.
-\end{proof}
-
-\begin{theorem}[V2: GKK oracle, no rearrangement]\label{thm:v2}
-Assume the text is maintained by the GKK oracle, and the operation sequence uses only point updates, insertions, deletions, and LPS queries (whole-string or interval). Then every operation costs
-\[
-O(\log^3 n)
-\]
-with high probability.
-\end{theorem}
-
-\begin{proof}
-The GKK oracle gives $\lambda=O(\log n)$ whp. Substituting into $T_{\mathrm{sm}}$ gives $O(\log^3 n)$ per split/merge, and each operation uses $O(1)$ splits/merges.
-\end{proof}
-
-\begin{theorem}[V3: conditional full model]\label{thm:v3}
-If a dynamic LCE oracle supports point updates, insertions, deletions, range reversal and cyclic shift with $O(\log n)$ update and query time whp, then every operation of the full model costs $O(\log^3 n)$ whp.
-\end{theorem}
-
-\begin{proof}
-The proof is identical to Theorem~\ref{thm:v2}, with the oracle assumption supplying $\lambda=O(\log n)$ for the rearranged text as well.
-\end{proof}
-
-\begin{remark}[What is unconditional]
-The combinatorial data structure and its correctness are unconditional (given exact LCE). The complexity separation is the only conditional part. V1 is the safe universal statement; V2 is the strong statement for the edit-only model; V3 is the target for the full model, explicitly conditional.
-\end{remark}
-
-\subsection{Expected and typical behaviour}
-
-The worst-case $A=\Theta(\log n)$ is realized by $Z_k$ and $P_k$. On random strings the number of dyadic APs per prefix is small; the archived experiments report averages of $1.5$--$5.6$ on structured strings, $1.6$--$1.9$ on random strings, and about $1.49$ for Treap nodes over random intervals. When $A=O(1)$, V2 becomes $O(\log^2 n)$ in expectation. This is an empirical statement about typical inputs, not a worst-case guarantee.
-
-\subsection{The LP-only channel}
-
-If only the whole-string LPS length is required and intervals are never queried, the long-kernel region needs only $O(1)$ APs: let $d_{\max}$ be the largest core length and $\mathit{best}$ the current answer. A long-kernel palindrome has length at most $d+2n$, so it can beat $\mathit{best}$ only if $d>\mathit{best}-2n$. If $d_{\max}\ge4n$, this confines $d$ to $[d_{\max}/2,d_{\max}]$, which spans $O(1)$ dyadic layers; if $d_{\max}<4n$, the entire range has length below $2n$ and again spans $O(1)$ layers. The short-kernel part costs $O(\log n)$ by the endpoint formula. Hence the per-node cost is $O(\log n)$ LCE, and V2 gives $O(\log^2 n)$ per operation. The pruning is invalid for the full summary: the discarded APs may be needed as shorter palindromic suffixes by the parent's merge.
-
-\subsection{Hash collisions}\label{sec:hash}
-
-In V1, let $K$ be the total number of hash-equality comparisons performed by the execution. For a non-adaptive operation sequence and independently random bases, the union bound gives
-\[
-\Pr[\text{any collision}]\le K\,\frac{n^2}{M_1M_2},
-\]
-where $M_1,M_2$ are the hash moduli. The count $K$ includes every comparison inside every LCE binary search, not one per query. A conservative accounting is $K=O(n\log^3 n+q\log^4 n)$ for the preprocessing and query sequence. With moduli around $10^9$, the resulting bound can exceed $1$; the earlier claim of a $10^{-4}$ error probability at $n=q=10^6$ is therefore withdrawn. Large 61-bit moduli make the numerical bound small, but a precise claim requires the exact $K$ and a careful treatment of adaptivity. The verification programs use character-by-character LCE and are not affected by this issue.
-
-\section{Barriers within the framework}\label{sec:barriers}
-
-These results explain why the framework does not improve further. None of them is a lower bound for the dynamic LPS problem in general.
-
-\subsection{The AP count}
-
-Theorem~\ref{thm:zlower} gives $A=\Theta(\log n)$ in the worst case. The lower bound is unconditional for exact AP partitions of the palindromic suffix set; it does not depend on the Treap or on the merge algorithm. It rules out any exact summary that stores the full set as APs with fewer groups.
-
-\subsection{Batch LCE}
-
-The product $A\cdot\lambda$ could be collapsed only by a primitive that answers many LCEs at once.
-
-\begin{definition}[Dynamic batch LCE]
-Given a dynamic text $U$ in RLSLP representation, a pattern $P$, and positions $d_1<\cdots<d_k$ with $k=O(\log n)$, report all $\LCP(U[d_t..],P)$ in $O(\log n)$ total time.
-\end{definition}
-
-\begin{barrier}[Batch-LCE barrier, conditional]\label{bar:batch}
-In the recompression parse-tree model, answering $\LCP(U[d_t..],P)$ requires reaching the leaf $d_t$ even when the answer is $0$, since one must confirm $U[d_t]\ne P[0]$. If the leaves are spread, any algorithm visits their Steiner tree, which has $\Omega(k\log n)$ nodes in the constructions tested. Under this model, no batch-LCE primitive achieves $O(\log n)$ total time.
-\end{barrier}
-
-The word ``barrier'' is deliberate: the leaf-access argument is a model-specific obstruction, not a general lower bound, and the Steiner-tree sizes are supported by experiments rather than a proof. For $P_k$ at $n=3071$ the layer representatives span $90$ nodes against $k\log n=144$ (ratio $7.5$); for the Fibonacci word at $n=6765$, $78$ against $130$ (ratio $7.8$). Explicit instances with non-aligned representatives give ratios between $1.67$ and $5.75$. Thus $A\cdot\lambda=\Omega(\log^2 n)$ \emph{in this model}, and the batch-LCE route is closed there.
-
-\subsection{Lazy summaries}
-
-Storing only $\LP$ and materializing $\PSuf$ on demand does not give an amortized improvement. The root and the upper layers must be materialized on every operation; materializing a node costs $\Theta(\log^2|v|)$, while the potential released by deferring it is at most $\log|v|$, leaving a logarithmic gap. The $P_k$ experiments are consistent with this: for $P_{11}$ at $n=6143$ with $200$ random priority assignments, the number of bad nodes (at least five APs) on a root-to-leaf path averages $12.2$ and reaches $20$, close to $\log n$ on every operation. The adversary controls the string content, not the priorities, and content alone makes the upper layers bad.
-
-\subsection{What this does not prove}
-
-We do not prove that dynamic LPS with insertions and deletions requires $\log^3 n$ time, nor that $q\cdot\polylog n$ is impossible. The barriers are relative to the mergeable-summary framework and to the stated LCE model. A genuine lower bound would need to argue about all data structures, not just this one.
-
-\section{Implementation and experiments}\label{sec:experiments}
-
-\subsection{Combinatorial verification}
-
-Independent C++14 programs compare every merge formula against brute force, using character-by-character LCE. The main checker enumerates all binary string pairs of length at most five and adds $100{,}000$ random, periodic and palindromic-structured pairs of length at most $18$; across $103{,}844$ pairs, all eleven checks report zero failures: dyadic AP structure, the $Q$ identity, the $e$ endpoint, the $g$ formula, the $\ell$ formula, both filters, the five-candidate maximum, the $\PSuf$ merge, the $\PPref$ merge, and the LP decomposition.
-
-A second battery over $120{,}000$ pairs reports zero failures for the same identities, and an exhaustive enumeration of $n\le18$ finds no violation of the dyadic layering ($185{,}434$ layers checked). The $Z_k$ family is checked to $k=12$ for the length recurrence, the palindromic suffix set, the maximal `b'-run, three-term-AP freedom, and palindromicity. The short-kernel and long-kernel components are verified separately: the endpoint formula by $306{,}000$ constructive random tests, the full short-kernel flow by $105{,}000$ pairs, the long-kernel structure by $100{,}000$ pairs, and the periodic-family filter by $718{,}000$ tests, all with zero failures. These are correctness checks, not proofs.
-
-\subsection{The experimental Treap}
-
-\texttt{experimental\_treap\_ap.cpp} is a single-file C++14 implicit Treap supporting point assignment, range reversal, range cyclic right rotation, and whole-string LPS queries, with dyadic AP summaries and fixed double rolling hashes. Its LCE is a binary search over tree hashes, so it realizes V1, with $O(\log^4 n)$ per operation and Monte Carlo correctness. It does not implement insertion or deletion, and it excludes the unproved minimal-AP fusion. The archived notes record that one revision was written but not compiled and differentially tested in the same round; the code is a study artifact, not a certified implementation.
-
-\subsection{The block decomposition}
-
-\texttt{palindrome\_diff/} is an independent implementation using time blocking: per-block answers, two-directional eertrees with series links, suffix-array LCE, and Manacher-based composite-fragment queries. Characters are integers in $0..10^9$; no random hashing is used. With $U$ modifications, $Q$ queries and block size $B$, its cost is
-\[
-O\!\left(\Bigl(1+\tfrac{U}{B}\Bigr)n\log(n+1)+UB+QB^2\log(n+1)\right).
-\]
-When $U$ and $Q$ are of the same order, $B=\Theta(n^{1/3})$, giving $O(n^{5/3}\log n)$ when $U=Q=\Theta(n)$. An earlier $O(n^{3/2}\log n)$ claim was an arithmetic error and is withdrawn.
-
-The saved battery has $60$ groups, all PASS; $52$ groups compare the block implementation against both center expansion and Manacher on $24{,}440$ query answers, all identical. The largest string has length $200{,}000$, with up to $10{,}000$ modifications each followed by a query. Joint exhaustive and random checks total $88{,}296$. Character values cover $0$ and $10^9$, and rotations cover $0$, the interval length, and values up to $10^{18}$. Initial strings include all-equal, short-periodic, Fibonacci-type, mirrored, and large-alphabet random strings. Every saved group is replayed from the final sources and audited by SHA-256.
-
-The performance result is negative and is reported as such. On the test machine, the block implementation is slower than per-query linear Manacher at the tested sizes, for example $n=200{,}000$ with $500$ modifications: $3.8$ seconds versus $1.4$ seconds. The asymptotic bookkeeping does not imply a practical advantage, and the block implementation is not a $q\cdot\polylog n$ algorithm.
-
-\subsection{Threats to validity}
-
-The tests are finite; they cannot establish the universal quantifiers in the lemmas. The Treap implementation is Monte Carlo and incomplete for insertion/deletion. The block implementation is deterministic but does not realize the mergeable-summary framework. The performance measurements are single-machine and not a benchmark. None of the experiments tests the V3 hypothesis, because no suitable LCE oracle is implemented.
-
-\section{An exploratory extension: distinct palindromes}\label{sec:distinct}
-
-The archive also studies counting distinct palindromic substrings, globally and per interval:
-\[
-D(S)=\bigl|\{P:\ P\text{ is a palindromic substring of }S\}\bigr|,\qquad
-D(S[l..r))=\bigl|\{P:\ P\text{ is a palindrome occurring entirely inside }S[l..r)\}\bigr|.
-\]
-The length-based summary compresses \emph{lengths}, not \emph{content equivalence classes} or \emph{occurrence sets}. For $S=AB$, the correct merge is
-\[
-D(AB)=D(A)+D(B)+\bigl|\mathcal P_{\mathrm{cross}}\setminus(\mathcal P_A\cup\mathcal P_B)\bigr|,
-\]
-whose correction term is a content-level membership test that the current summary cannot answer: a palindrome may occur in $A$, in $B$, and again as a crossing palindrome, and two different APs may carry the same content at different positions.
-
-\paragraph{The additive $\delta$ route fails.} Writing $\mathrm{distinct}(S)=\sum_i\delta_S(i)$, where $\delta_S(i)$ indicates that the longest palindromic suffix of $S[0..i]$ is unique (equivalently, that position $i$ creates a new eertree node), is correct; the identity held in $3000/9952$ tested cases. There is a useful asymmetry: $\delta$ values inside $A$ never change, so only $B$ must be corrected. However, $\delta$ rose in $30$ cases and fell in $2881$ cases, with about $0.25|B|$ changed positions on average. The correction is linear, not polylogarithmic. The rises are new crossing palindromes; the falls are exactly the containment problem. The $\delta$ representation relocates the difficulty rather than removing it.
-
-\paragraph{The runs-summary proposal.} A more structural idea is to replace the global $\PSuf/\PPref$ granularity by run-level granularity. The runs of $AB$ are the union of the runs of $A$ and $B$ plus $O(1)$ boundary merges; within a maximal run of period $p$, the palindromic contents are determined by the palindromic prefix and suffix length APs (difference $p$); two runs overlap in content only when their periods and phases are compatible, in which case deduplication is a union of length intervals; the boundary-expansion case is exactly the crossing lemmas. If these facts hold, distinctness becomes $|\bigcup_R \mathrm{Pal}(R)|$, computable by phase grouping and interval union. The proposal is unverified: the five checks (runs concatenation, $\mathrm{Pal}(R)$ characterization, deduplication lemma, global reconstruction, dynamic behavior under reversal and rotation) were not completed. An earlier experiment reporting $35\%$ support used the wrong question (all occurrences in a single run); the corrected question, deduplication between same-phase runs, was not tested.
-
-\paragraph{Feasibility.} Maintaining repeated-palindrome counts inside the framework is feasible. Maintaining global distinct counts requires a new content-deduplication lemma. Interval distinct counts additionally require an occurrence index supporting $\Occ(P)\cap[l,r-|P|]\neq\varnothing$. Full online interval distinct under the complete operation set is an independent research problem. The realistic engineering route is square-root decomposition with local eertrees and a canonical-ID dictionary, at $O(\sqrt n\polylog n)$ per operation, not a $\log^3 n$ guarantee.
-
-\section{Related work}\label{sec:related}
-
-\begin{table}[t]
-\centering
-\caption{Dynamic palindrome and related results. The last row is this work; the time is per operation.}
-\label{tab:related}
-\begin{tabular}{@{}p{0.26\textwidth}p{0.28\textwidth}p{0.36\textwidth}@{}}
-\toprule
-Work & Model & Time \\
-\midrule
-Amir--Boneh \cite{AB19} & single-character substitutions & $O(\log^4 n)$ $\whp$ (randomized LCE); $O(\log^5 n\log^* n)$ deterministic \\
-Amir--Charalampopoulos--Pissis--Radoszewski \cite{ACPR19} & fully dynamic LCS; LPS corollary & $\tilde O(\sqrt n)$ (one-sided edits); $\tilde O(n^{2/3})$ (two strings) \\
-Funakoshi--Nakashima--Inenaga--Bannai--Takeda \cite{FNIBT21} & static preprocessing, one edit as query & $O(\log\log n)$ per query after $O(n)$ preprocessing \\
-Charalampopoulos--Gawrychowski--Pokorski \cite{CGP20} & fully dynamic LCS & $O(\log^7 n)$ amortized $\whp$; lower bound $\Omega(\log n/\log\log n)$ \\
-Wang--Yang--Zhu \cite{WYZ25} & double-ended eertree & linear construction; distinct counting, longest palindromic prefix/suffix \\
-This work, V1 & updates, insertions, deletions, reversal, rotation, interval queries & $O(\log^4 n)$ $\whp$ (hash LCE) \\
-This work, V2 & the same without reversal/rotation & $O(\log^3 n)$ $\whp$ (GKK LCE) \\
-This work, V3 & full operation set & $O(\log^3 n)$ $\whp$ (conditional on an LCE oracle for rearrangements) \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The comparison with \cite{AB19} must be read carefully. Their algorithm is deterministic given a deterministic LCE structure; with randomized LCE it becomes Monte Carlo with $O(\log^4 n)$ time. Our V2 is Monte Carlo with $O(\log^3 n)$ time for a wider operation set (excluding reversal and rotation), so it is one logarithmic factor better in the randomized model but not in the deterministic model. Our V1 is $O(\log^4 n)$ and supports the full operation set; it matches the randomized bound of \cite{AB19} while covering more operations. We do not claim to dominate the deterministic result.
-
-The dynamic LCS line \cite{ACPR19,CGP20} is the closest technical relative. \cite{CGP20} achieves $O(\log^7 n)$ amortized update time with high probability using the GKK parsing and a lower bound of $\Omega(\log n/\log\log n)$; it shows that polylogarithmic dynamic substring problems are attainable with these tools. The present work is a palindrome-specific summary layer on top of the same family of primitives. The one-edit query model \cite{FNIBT21} is different: the text is fixed and an edit is a query, so an $O(\log\log n)$ query time is not comparable to a fully dynamic update time.
-
-The eertree and its series links \cite{RS15} supply the AP structure of palindromic suffixes; the double-ended variant \cite{WYZ25} supports two-ended updates and distinct counting but not arbitrary interior edits, reversals, or rotations. The IPM result of Duyster and Kociumaka \cite{DK24} supplies the $O(\log n)$ occurrence-AP query used in the short-kernel region, and the GKK dynamic string \cite{GKK18} supplies the dynamic LCE. The Fine--Wilf theorem \cite{FW65} is used in the dyadic lemma, and Manacher's algorithm \cite{Man75} is the benchmark for the block implementation.
-
-\section{Claim status}\label{sec:status}
-
-\begin{table}[t]
-\centering
-\caption{Status of the main statements.}
-\label{tab:status}
-\begin{tabular}{@{}p{0.38\textwidth}p{0.22\textwidth}p{0.32\textwidth}@{}}
-\toprule
-Statement & Status & Evidence \\
-\midrule
-Crossing decomposition (Lemma~\ref{lem:cross}) & proved & full proof; verified $120{,}000$ pairs \\
-Dyadic AP lemma (Lemma~\ref{lem:dyadic}) & proved & full proof; exhaustive $n\le18$ \\
-Periodic-family LCE (Lemma~\ref{lem:periodic}) & proved & full proof; $718{,}000$ tests \\
-Five-candidate lemma (Lemma~\ref{lem:five}) & proved & full proof; $103{,}844$ pairs \\
-Filter lemmas & proved & full proof; with the same battery \\
-Summary merge (Theorem~\ref{thm:merge}) & proved & full proof; verified \\
-Endpoint formula (Theorem~\ref{thm:endpoint}) & proved & full proof; $306{,}000$ tests \\
-AP lower bound (Theorem~\ref{thm:zlower}) & proved & full proof; $Z_k$ to $k=12$ \\
-$A=\Theta(\log n)$ in the framework & proved & Theorem~\ref{thm:zlower} \\
-V1 complexity & proved (Monte Carlo) & Theorem~\ref{thm:v1} \\
-V2 complexity & proved (conditional on GKK) & Theorem~\ref{thm:v2} \\
-V3 complexity & conditional & Theorem~\ref{thm:v3} \\
-Batch-LCE barrier & model-specific & Barrier~\ref{bar:batch}; experiments \\
-Lazy-summary barrier & model-specific & potential argument + $P_k$ \\
-Global distinct counting & open & Section~\ref{sec:distinct} \\
-Interval distinct counting & open & Section~\ref{sec:distinct} \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The earlier draft contained several overstatements that are withdrawn. For the record: (1) the full dynamic summary is not unconditionally $O(\log^2 n)$; the worst case is V1 $O(\log^4 n)$ or V2 $O(\log^3 n)$; (2) the long-kernel region does not always have $O(1)$ APs, as $P_k$ shows; (3) the crossing answer is not one LCE plus an RMQ, because of the equality point; (4) there is no batch-LCE primitive; (5) lazy summaries do not give an amortized $o(\log^3 n)$; (6) the block implementation is $O(n^{5/3}\log n)$, not $O(n^{3/2}\log n)$; (7) the $10^{-4}$ hash-error claim is invalid; (8) minimal AP fusion is not proved; (9) $Q=U[0..p)$ is not equivalent to $p\mid d_0$; (10) the citation of \cite{ACPR19} as a dynamic-LPS paper is imprecise, since its main result is dynamic LCS and the LPS bound is a corollary.
-
-\section{Limitations and open problems}\label{sec:open}
-
-\begin{enumerate}[leftmargin=1.8em,itemsep=0.25em]
-\item \textbf{The V3 oracle.} The full operation set with $O(\log^3 n)$ requires a dynamic LCE oracle supporting range reversal and cyclic shift. No such oracle is known to us; constructing one, or showing that the Treap's own hashes can be made to answer LCE in $O(\log n)$ amortized, is the main open technical question.
-\item \textbf{A true lower bound.} The barriers are framework-relative. A lower bound for dynamic LPS with insertions and deletions, even under a restricted model, would be a significant result; the dynamic LCS lower bound \cite{CGP20} is the model to emulate.
-\item \textbf{Batch LCE.} Barrier~\ref{bar:batch} is conditional on the parse-tree model and on the Steiner-tree experiments. A formal lower bound, or a counterexample structure, is open.
-\item \textbf{Lazy summaries.} The potential gap is a proof sketch, not a theorem; a stronger invariant might close it.
-\item \textbf{Wide-fanout trees.} A non-binary tree could reduce $M$, but summary merging at a wide node becomes more expensive; unexplored.
-\item \textbf{Distinct palindromes.} The content-level deduplication lemma, the canonical-ID compression of a periodic family, and the occurrence index are all open.
-\item \textbf{Deterministic LCE.} V1 is Monte Carlo; a deterministic dynamic LCE with $O(\log n)$ updates and queries would remove the hashing caveat. The deterministic LCE of \cite{AB19} has larger logarithmic factors.
-\item \textbf{The minimal-AP question.} The dyadic representation is a valid exact representation, but it is not always the minimum-size AP partition; the exact complexity of minimum fusion is open and was not used in the algorithm.
-\end{enumerate}
-
-\section{Conclusion}
-
-The mergeable-summary framework gives a clean combinatorial route to fully dynamic LPS: dyadic AP summaries, a periodic-family LCE lemma, five candidates per AP, and an endpoint formula for the short-kernel region. Its self-contained hashing version runs in $O(\log^4 n)$ per operation for the full operation set; its GKK-based version runs in $O(\log^3 n)$ for point updates, insertions, deletions, and interval queries. The $O(\log^3 n)$ bound for range reversal and cyclic shift is conditional on an LCE oracle that the cited literature does not provide, and we state this rather than hiding it. The AP count is $\Theta(\log n)$ on explicit families, the batch-LCE primitive is unavailable in the recompression model, and lazy summaries do not amortize. The merge formulas are proved and extensively verified; the implementations are documented with their limits, including a negative performance result. The distinct-palindrome extension remains open. The value of the framework is therefore not a single headline bound, but a precise map of what works, what is assumed, and what would be needed to go further.
-
-\begin{thebibliography}{99}
-
-\bibitem[AB19]{AB19}
-A.~Amir and I.~Boneh.
-\newblock Dynamic palindrome detection.
-\newblock arXiv:1906.09732, 2019.
-
-\bibitem[ACPR19]{ACPR19}
-A.~Amir, P.~Charalampopoulos, S.~P. Pissis, and J.~Radoszewski.
-\newblock Longest common substring made fully dynamic.
-\newblock In \emph{Proc. ESA 2019}, LIPIcs 144, 6:1--6:17; journal version in \emph{Algorithmica}, 2020.
-
-\bibitem[CGP20]{CGP20}
-P.~Charalampopoulos, P.~Gawrychowski, and K.~Pokorski.
-\newblock Dynamic longest common substring in polylogarithmic time.
-\newblock In \emph{Proc. ICALP 2020}, LIPIcs 168, 27:1--27:19; arXiv:2006.02408.
-
-\bibitem[DK24]{DK24}
-A.~Duyster and T.~Kociumaka.
-\newblock Logarithmic-time internal pattern matching queries in compressed and dynamic texts.
-\newblock In \emph{Proc. SPIRE 2024}; arXiv:2503.03488, 2025.
-
-\bibitem[FNIBT21]{FNIBT21}
-M.~Funakoshi, Y.~Nakashima, S.~Inenaga, H.~Bannai, and M.~Takeda.
-\newblock Computing longest palindromic substring after single-character or block-wise edits.
-\newblock \emph{Theoretical Computer Science}, 2021; arXiv:1901.10722.
-
-\bibitem[FW65]{FW65}
-N.~J. Fine and H.~S. Wilf.
-\newblock Uniqueness theorems for periodic functions.
-\newblock \emph{Proc. American Mathematical Society}, 16(1):109--114, 1965.
-
-\bibitem[GKK18]{GKK18}
-P.~Gawrychowski, A.~Karczmarz, T.~Kociumaka, J.~{\L}acki, and P.~Sankowski.
-\newblock Optimal dynamic strings.
-\newblock In \emph{Proc. SODA 2018}, 1509--1528.
-
-\bibitem[Man75]{Man75}
-G.~Manacher.
-\newblock A new linear-time ``on-line'' algorithm for finding the smallest initial palindrome of a string.
-\newblock \emph{Journal of the ACM}, 22(3):346--351, 1975.
-
-\bibitem[RS15]{RS15}
-M.~Rubinchik and A.~M. Shur.
-\newblock EERTREE: An efficient data structure for processing palindromes in strings.
-\newblock In \emph{Proc. IWOCA 2015}; arXiv:1506.04862.
-
-\bibitem[WYZ25]{WYZ25}
-Q.~Wang, M.~Yang, and X.~Zhu.
-\newblock Double-ended palindromic trees in linear time.
-\newblock \emph{Information and Computation}, 307:105379, 2025; arXiv:2210.02292.
-
+\section{Reproducible validation}\label{sec:valid}
+The programs are in \texttt{code/v49/} and use only the Python standard library. From that directory run, with \texttt{python}: \texttt{treap\_full\_verify.py}, \texttt{run\_fast\_audit.py}, \texttt{v4\_constructed\_verify.py}, \texttt{v49\_regression.py}, \texttt{v42\_handle\_free\_verify.py} and \texttt{space\_accounting.py}. The last counts the space-consuming collection calls per operation and the AP triples stored over all nodes; for $n$ from $64$ to $2048$ the maximum call count divided by $\log_2^2n$ stays between $16$ and $24$, and the stored triples average about $3.5$ per node against the bound $2(\lfloor\log_2n\rfloor+1)$. \texttt{v42\_handle\_free\_verify.py} runs V4.2: nodes store no handle, the collection holds only $S$ and $\operatorname{rev}(S)$, and every merge reads its strings as fragment lists of the old pair. It checks every node summary against brute force on 13 families, including the constructed ones, records the largest fragment list (5), and counts permanent calls per operation, which stay at 24 for $n$ from 64 to 2048, while transactional calls divided by $\log_2^2n$ stay between 82 and 115. The constructed families are shared by \texttt{v4\_constructed\_verify.py}, which adds the empty string, and \texttt{v42\_handle\_free\_verify.py}: unary, alternating, short-periodic, period-break, near-palindromic, many-border, two-marker and recursive strings, each compared against an independent direct palindrome enumeration at every operation and interval query, with all stored node summaries checked.
+
+\texttt{v49\_regression.py} tests the two cases this revision adds to the text. For the $d=0$ term of Lemma~\ref{crossmax} it confirms the example above and then, over all $15876$ pairs of binary strings of lengths $1$ to $6$, that the merge is exact while a variant maximising only over AP members is wrong on $1266$ of them. For singletons it instruments the merge: over $3000$ random merges, $472124$ of $492382$ AP visits were singletons, that is $96\%$, and all results were exact; so Remark~\ref{singleton} covers the typical case rather than a corner case. It also measures the largest fragment list per operation type against the table of Section~\ref{sec:v42}, finding exactly the predicted final sizes plus one in every case.
+
+The string handles in these programs are Python strings and the comparisons are character scans: they validate identities and operations, not the dynamic-string complexity or the space bound. Random tests and special constructions cannot establish a universal proof.
+\begin{thebibliography}{9}
+\bibitem{GKK} P. Gawrychowski, A. Karczmarz, T. Kociumaka, J. {\L}\k{a}cki, P. Sankowski, \emph{Optimal Dynamic Strings}, SODA 2018, 1509--1528. Theorem, lemma and section numbers cited here follow arXiv:1511.02612v2.
+\bibitem{AB19} A. Amir, I. Boneh, \emph{Dynamic Palindrome Detection}, arXiv:1906.09732 (2019).
+\bibitem{ACPR18} A. Amir, P. Charalampopoulos, S. P. Pissis, J. Radoszewski, \emph{Longest Common Substring Made Fully Dynamic}, ESA 2019, LIPIcs 144, 6:1--6:17; arXiv:1804.08731.
+\bibitem{FNIBT} M. Funakoshi, Y. Nakashima, S. Inenaga, H. Bannai, M. Takeda, Computing longest palindromic substring after single-character or block-wise edits, \emph{Theoret. Comput. Sci.} 859 (2021), 116--133; preliminary version: Faster queries for longest substring palindrome after block edit, CPM 2019, LIPIcs 128, 27:1--27:13.
+\bibitem{RS15} M. Rubinchik, A. M. Shur, EERTREE: an efficient data structure for processing palindromes in strings, \emph{European J. Combin.} 68 (2018), 249--265; IWOCA 2015.
+\bibitem{Aldous} D. Aldous, Asymptotic fringe distributions for general families of random trees, Ann. Appl. Probab. 1(2) (1991), 228--266.
+\bibitem{Devroye} L. Devroye, Limit laws for local counters in random binary search trees, Random Structures Algorithms 2(3) (1991), 303--315.
+\bibitem{Kapur} N. Kapur, Additive functionals on random search trees, arXiv:math/0304411 (2003).
+\bibitem{Overmars} M. H. Overmars, \emph{The Design of Dynamic Data Structures}, LNCS 156, Springer, 1983.
+\bibitem{FeAVL} \emph{Fully Persistent Dynamic LCE via AVL Trees and AVL Grammars}, arXiv:2607.01580 (2026). Submitted by S. Inenaga; the arXiv listing page does not show the full author list.
+\bibitem{FW} N. Fine and H. Wilf, Uniqueness theorems for periodic functions, Proc. Amer. Math. Soc. 16 (1965), 109--114.
 \end{thebibliography}
-
-\appendix
-
-\section{Verification programs}
-
-The combinatorial checker \texttt{verify\_merge.cpp} uses character-by-character LCE and checks: dyadic AP structure; the identity $Q=\rev(U[0..p))$; the $e$ endpoint; the $g$ formula; the $\ell$ formula; both filters; the five-candidate maximum; the $\PSuf$ merge; the $\PPref$ merge; and the LP decomposition. It enumerates all binary pairs of length at most five and adds $100{,}000$ structured random pairs. The second checker \texttt{verify\_zk.cpp} checks the $Z_k$ recurrence, the palindromic suffix set, the maximal `b'-run, three-term-AP freedom, and palindromicity up to $k=12$.
-
-The block implementation is tested by \texttt{run\_tests.py}, which compiles the sources, generates inputs, runs the block implementation, center expansion, and Manacher, compares the outputs byte-for-byte, and stores the inputs, outputs, command lines, seeds, and SHA-256 hashes under \texttt{artifacts/}. The stress harness \texttt{stress.cpp} performs joint exhaustive and random checks of fragments and answers.
-
-\section{Artifact inventory}
-
-The working directory contains:
-\begin{itemize}[leftmargin=1.4em,itemsep=0.1em]
-\item the final complexity notes, the strict conclusion, and the batch-LCE note;
-\item the full merge proof, the endpoint derivation, the lemma-B note, the optimization notes, and the distinct-palindrome study;
-\item the two verification programs and the experimental Treap;
-\item the block decomposition, its generator, brute checker, stress harness, test driver, audit script, and the saved test report, manifest, and summary;
-\item the source excerpt of the IPM result used for the short-kernel query.
-\end{itemize}
-The published repository excludes the third-party arXiv full text, the conversation exports, the compiled binaries, the Python caches, and the bulk per-case test outputs.
-
 \end{document}

@@ -1,25 +1,27 @@
 cff-version: 1.2.0
 message: "If you use this work, please cite it as below."
 type: preprint
-title: "Fully Dynamic Longest Palindromic Substring via Mergeable Palindrome Summaries"
+title: "Dynamic Longest Palindromic Substring via Mergeable Summaries"
+version: "4.9"
 authors:
   - family-names: "Liu"
     given-names: "Chengde"
 date-released: "2026-11-21"
 license: "CC-BY-4.0"
 abstract: >-
-  We study the longest palindromic substring problem for a string undergoing
-  point updates, insertions, deletions, range reversals, range cyclic shifts,
-  and interval LPS queries. An implicit Treap stores per-node palindrome
-  summaries (LP, PSuf, PPref as arithmetic progressions, and forward/reverse
-  hashes). The complexity is stated in three variants: O(log^4 n) with
-  Treap-hash LCE for all operations; O(log^3 n) with GKK dynamic LCE for
-  point updates, insertions, deletions and interval queries; and O(log^3 n)
-  for the full operation set conditional on an LCE oracle supporting range
-  rearrangements. The paper also proves a Theta(log n) lower bound on the
-  number of progressions, analyzes batch-LCE and lazy-summary barriers
-  within the framework, reports exhaustive/randomized verification and two
-  implementations, and treats distinct-palindrome counting as open.
+  We give a data structure maintaining the longest palindromic substring of a
+  string under character replacement, insertion, deletion, range reversal and
+  range cyclic shift, answering the query on an arbitrary interval. Each node
+  of an implicit Treap stores handles of its substring and of the reverse of
+  its substring, which turns range reversal into a lazy flag and requires no
+  reversal primitive from the underlying dynamic string structure. Using the
+  persistent dynamic string collection of Gawrychowski, Karczmarz, Kociumaka,
+  Lacki and Sankowski as a black box, every operation runs in O(log^3 N) time,
+  simultaneously over a polynomially long execution with high probability,
+  against an oblivious adversary, and answers are exact. Variants with
+  periodic rebuilding give O(N log^2 N) words of space, and handle-free
+  summaries give O(N) words in expectation, both keeping the O(log^3 N) time
+  bound amortised.
 keywords:
   - dynamic strings
   - longest palindromic substring
@@ -27,3 +29,4 @@ keywords:
   - arithmetic progressions
   - LCE
   - data structures
+  - range reversal

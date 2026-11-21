@@ -1,5 +1,0 @@
-#include <bits/stdc++.h>
-using namespace std;
-int center(const vector<int>&s){int n=s.size(),ans=0;for(int c=0;c<2*n-1;++c){int l=c/2,r=l+c%2;while(l>=0&&r<n&&s[l]==s[r]){ans=max(ans,r-l+1);--l;++r;}}return ans;}
-int manacher(const vector<int>&s){int n=s.size(),ans=0;vector<int>d(n);for(int i=0,l=0,r=-1;i<n;++i){int k=i>r?1:min(d[l+r-i],r-i+1);while(i-k>=0&&i+k<n&&s[i-k]==s[i+k])++k;d[i]=k;ans=max(ans,2*k-1);if(i+k-1>r){l=i-k+1;r=i+k-1;}}fill(d.begin(),d.end(),0);for(int i=0,l=0,r=-1;i<n;++i){int k=i>r?0:min(d[l+r-i+1],r-i+1);while(i-k-1>=0&&i+k<n&&s[i-k-1]==s[i+k])++k;d[i]=k;ans=max(ans,2*k);if(i+k-1>r){l=i-k;r=i+k-1;}}return ans;}
-int main(int argc,char**argv){ios::sync_with_stdio(false);cin.tie(nullptr);bool linear=argc>1&&string(argv[1])=="--linear";int n,q;if(!(cin>>n>>q))return 2;vector<int>s(n);for(int&x:s)cin>>x;for(int i=0;i<q;++i){int t;cin>>t;if(t==4)cout<<(linear?manacher(s):center(s))<<'\n';else if(t==1){int p,c;cin>>p>>c;s[p-1]=c;}else{int l,r;cin>>l>>r;--l;if(t==2)reverse(s.begin()+l,s.begin()+r);else if(t==3){long long k;cin>>k;k%=r-l;rotate(s.begin()+l,s.begin()+r-(int)k,s.begin()+r);}else return 2;}if(!cin)return 2;}}
