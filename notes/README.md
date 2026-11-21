@@ -18,6 +18,7 @@ explicit retractions — `FINAL.md` is the authoritative summary.
 | `optimizations/remaining_log3.md` | `时间复杂度目前仍然为log^3.txt` | Endpoint equality fix; withdrawal of the `O(1)` long-kernel AP claim |
 | `optimizations/maintainable_summary.md` | `目前能维护的部分内容.txt` | Position witness, tie-breaking, prefix/suffix counts, top-K |
 | `distinct_palindromes.md` | `不同回文串数量尝试方向.txt` | Distinct-palindrome directions and feasibility |
+| `mirror_pair_dynamic_lce.md` | new (2026-11-21) | Mirror-pair construction of an `O(log n)` dynamic LCE supporting reversal/rotation, on top of GKK; closes the V3/D2 gap |
 
 ## Status labels
 
