@@ -10,6 +10,7 @@ the retraction ledger before citing any bound.
 
 - Paper: [`paper/paper.pdf`](paper/paper.pdf) · LaTeX source: [`paper/main.tex`](paper/main.tex)
 - Revision notes (Chinese): [`docs/REVISION_zh.md`](docs/REVISION_zh.md)
+- Open issues / audit checklist: [`docs/ISSUES.md`](docs/ISSUES.md)
 - Notes: [`notes/`](notes/) — proofs, endpoint derivations, optimization notes, distinct-palindrome study
 - Code: [`code/`](code/) — experimental Treap and block-decomposition implementations
 - Previous draft: [`paper/v1/`](paper/v1/) — kept for comparison only
