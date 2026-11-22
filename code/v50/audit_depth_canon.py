@@ -217,6 +217,65 @@ def audit_canon_overlap(trials=6000):
     return checked, failures
 
 
+def old_canon(triples):
+    """The pre-V5.0 canonicalisation, kept for a reproducible comparison.
+
+    It splits every layer by a gcd/step heuristic and then compares the sum of
+    the piece lengths with the reconstructed count.  A doubly covered element
+    therefore looks like a hole.  Returns None when the routine aborts.
+    This routine is intentionally wrong; it is never used by the algorithm."""
+    by_layer = {}
+    for tr in triples:
+        s, st, c = tr
+        last = s + (c - 1) * st
+        for j in range(s.bit_length(), last.bit_length() + 1):
+            lo, hi = 1 << (j - 1), (1 << j) - 1
+            piece = T.ap_restrict(tr, lo, hi)
+            if piece is not None:
+                by_layer.setdefault(j, []).append(piece)
+    out = []
+    for j in sorted(by_layer):
+        pieces = by_layer[j]
+        lo_el = min(s for s, _, _ in pieces)
+        hi_el = max(s + (c - 1) * st for s, st, c in pieces)
+        if lo_el == hi_el:
+            out.append((lo_el, 0, 1))
+            continue
+        second = min((s + st if (s == lo_el and c > 1) else s)
+                     for s, st, c in pieces
+                     if (s + st if (s == lo_el and c > 1) else s) > lo_el)
+        p = second - lo_el
+        cnt = (hi_el - lo_el) // p + 1
+        if not all((s - lo_el) % p == 0 and st % p == 0
+                   for s, st, _ in pieces):
+            return None
+        if sum(c for _, _, c in pieces) != cnt:
+            return None
+        out.append((lo_el, p, cnt))
+    return out
+
+
+def audit_old_canon_overlap(trials=6000):
+    """Old count-based canon on the same overlapping covers; returns
+    (checked, failures).  This is a historical measurement, not a test that is
+    expected to pass: with the shipped generator it reports 849 failures."""
+    rnd = random.Random(31337)
+    checked = failures = 0
+    for _ in range(trials):
+        al = rnd.choice(['ab', 'abc'])
+        w = ''.join(rnd.choice(al) for _ in range(rnd.randint(1, 50)))
+        els = [d for d in range(1, len(w) + 1)
+               if w[len(w) - d:] == w[len(w) - d:][::-1]]
+        if not els:
+            continue
+        checked += 1
+        part = random_overlapping_partition(rnd, els)
+        got = old_canon(part)
+        if got is None or T.ap_expand(got) != set(els):
+            failures += 1
+    return checked, failures
+
+
 def audit_canon(trials=20000):
     rnd = random.Random(31337)
     bad_set = bad_count = bad_layer = 0
@@ -294,6 +353,9 @@ if __name__ == '__main__':
     failures += ofail
     print(f"    {och} palindromic-suffix sets, random OVERLAPPING legal covers:"
           f" failures={ofail}")
+    oldch, oldfail = audit_old_canon_overlap()
+    print(f"    same {oldch} overlapping trials, pre-V5.0 count-based routine:"
+          f" failures={oldfail}  (historical measurement; not a passing test)")
     print()
 
     if failures:

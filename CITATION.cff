@@ -2,11 +2,11 @@ cff-version: 1.2.0
 message: "If you use this work, please cite it as below."
 type: preprint
 title: "Dynamic Longest Palindromic Substring via Mergeable Summaries"
-version: "4.9"
+version: "5.0"
 authors:
   - family-names: "Liu"
     given-names: "Chengde"
-date-released: "2026-11-21"
+date-released: "2026-11-22"
 license: "CC-BY-4.0"
 abstract: >-
   We give a data structure maintaining the longest palindromic substring of a
@@ -16,12 +16,14 @@ abstract: >-
   its substring, which turns range reversal into a lazy flag and requires no
   reversal primitive from the underlying dynamic string structure. Using the
   persistent dynamic string collection of Gawrychowski, Karczmarz, Kociumaka,
-  Lacki and Sankowski as a black box, every operation runs in O(log^3 N) time,
+  Łącki and Sankowski as a black box, every operation runs in O(log^3 N) time,
   simultaneously over a polynomially long execution with high probability,
-  against an oblivious adversary, and answers are exact. Variants with
-  periodic rebuilding give O(N log^2 N) words of space, and handle-free
-  summaries give O(N) words in expectation, both keeping the O(log^3 N) time
-  bound amortised.
+  against an oblivious adversary, and answers are exact. On the high-probability
+  event, each operation increases the space by O(log^3 N) words, so q operations
+  use O(N + n_0 log^2 N + q log^3 N) words; no q-independent bound is claimed.
+  We also state a direction toward O(N log N) space with O(log^3 N) amortised
+  time via periodic rebuilding of the collection; its rigorous accounting is
+  not yet complete, so it is not claimed as a theorem.
 keywords:
   - dynamic strings
   - longest palindromic substring

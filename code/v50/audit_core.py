@@ -1,9 +1,9 @@
 """
 Independent audit of the c=O(1) load-bearing chain: Lemma 1 (dyadic AP),
 Lemma 2 (periodic-family LCE), filtK/filtVar, the five candidates, and the
-PSuf(AB) merge table of merge_proof.md section 6.
+PSuf(AB) merge table of the paper's Section 4.
 
-Written from the statements in the notes, NOT from the repo implementation,
+Written from the statements in the paper, NOT from the repo implementation,
 so that a shared bug would show up as a disagreement.
 """
 import itertools, random, sys

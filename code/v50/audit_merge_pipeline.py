@@ -1,5 +1,6 @@
 ﻿"""
-Does the O(log^3 n) bound really depend on the endpoint formula and on DK24 IPM?
+Does the merge really need only the Lemma 1/2 filters, with no endpoint
+formula and no IPM query?
 
 This runs the FULL PSuf/PPref node merge using ONLY
     Lemma 1 (dyadic AP partition)  +  Lemma 2 (periodic-family LCE)

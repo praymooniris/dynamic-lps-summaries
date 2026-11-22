@@ -1,7 +1,7 @@
 """
-End-to-end verification of the full dynamic palindrome summary.
+End-to-end verification of the full dynamic palindrome summary (V5.0).
 
-Architecture under test (matches notes/mergeable_full_model.md, to be written):
+Architecture under test (paper V5.0, Sections 3--5):
   * a treap; every node stores a summary Sm = (n, F, R, PS, PP, LP) where
       F, R   : handles of the node's string and of its reverse
       PS, PP : palindromic suffix / prefix length sets, as canonical AP triples
@@ -13,7 +13,7 @@ Architecture under test (matches notes/mergeable_full_model.md, to be written):
   * a merge of summaries X,Y uses ONLY:
       Lemma 1 (dyadic AP canonical form), Lemma 2 (periodic-family LCE),
       filtK, filtVar, the five-candidate maximum, and the merge table.
-    The endpoint formula and the DK24 IPM are NOT used.
+    No endpoint formula and no IPM query are used.
 
 Checks:
   * every node summary equals the brute-force summary of its own substring
@@ -92,9 +92,11 @@ def canon(triples):
     arithmetic per layer (ap_restrict).  Inside one layer the union of the
     pieces is a single AP with difference p (Lemma 1 applied to the true set).
     p is the gap between the two smallest elements of the layer, read from
-    piece starts and steps only.  Pieces MAY overlap: the layer is validated by
-    membership of each candidate element in the pieces, not by counting, so a
-    doubly-covered element is not a hole."""
+    piece starts and steps only.  Pieces MAY overlap: no element is counted and
+    no member is expanded, so a doubly-covered element is never mistaken for a
+    hole.  The caller guarantees that the input pieces union to exactly the
+    true palindromic set; the audits below check the expanded output against
+    brute force, which is where a genuine hole would be detected."""
     by_layer = {}
     for tr in triples:
         s, st, c = tr
@@ -121,26 +123,14 @@ def canon(triples):
                 cands.append(s + st)
         p = min(cands) - lo_el
         cnt = (hi_el - lo_el) // p + 1
+        # Only piece starts are inspected.  The union guarantee of the caller
+        # (union is exactly the true set) supplies the missing membership
+        # checks; expanding the layer here would destroy the O((r+1) log N)
+        # cost claimed by Lemma canon.
         assert all((s - lo_el) % p == 0 for s, _, _ in pieces), \
             "layer is not on one lattice of difference p"
-        assert all(_in_pieces(lo_el + k * p, pieces) for k in range(cnt)), \
-            "layer has a hole"
         out.append((lo_el, p, cnt))
     return out
-
-
-def _in_pieces(x, pieces):
-    """membership of x in the union of AP pieces, O(#pieces) arithmetic"""
-    for s, st, c in pieces:
-        if x < s:
-            continue
-        if c == 1:
-            if x == s:
-                return True
-            continue
-        if (x - s) % st == 0 and (x - s) // st < c:
-            return True
-    return False
 
 
 
@@ -375,6 +365,7 @@ def merge(a, b):
 
 
 def op_insert(root, i, c):
+    CNT['make_string'] += 1
     A, B = split(root, i)
     return merge(merge(A, Node(c)), B)
 
@@ -386,6 +377,7 @@ def op_delete(root, i):
 
 
 def op_subst(root, i, c):
+    CNT['make_string'] += 1
     A, B = split(root, i)
     _, C = split(B, 1)
     return merge(merge(A, Node(c)), C)
@@ -477,6 +469,7 @@ def check_all(root, stats):
 def build(s):
     root = None
     for ch in s:
+        CNT['make_string'] += 1
         root = merge(root, Node(ch))
     return root
 

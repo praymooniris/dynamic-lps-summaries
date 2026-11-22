@@ -3,6 +3,33 @@
 仓库中只保留最新版正文 `paper/main.tex` 与 `paper/paper.pdf`。早期版本的正文、
 证明笔记和旧实现已移出仓库，本文件保留它们的摘要，以便追溯结论的演变。
 
+## V5.0（2026-11-22，当前版本）
+
+V4.9 的数学内容与主结论保持不变；V5.0 是表述、可复现性与排版修订：
+
+- 版本号统一为 V5.0；代码目录改为 `code/v50/`，回归脚本改名为
+  `v50_regression.py`，构造测试改名为 `constructed_verify.py`。
+- 修正空间证明的引用：GKK App A 只保证一次 update 的 O(τ) 空间，并未声明 query
+  可回滚。V5.0 改为“LCP 可实现为只读遍历；若不依赖该实现细节，按 O(log N)/LCP
+  记账，结论不变”。`spacetot` 补上最终 Treap 的 O(n log N) 记录（被 q log³ N
+  支配）；词 RAM 明确为带乘法，并显式说明字长常数。
+- 新增 Algorithms 1–4：`MergeSummaries`、`SuffixMerge`、
+  `Info`/`FilterK`/`FilterVar`/`FiveCandidates`、`Canon`。
+- 相关工作补 CGP 2020（ICALP）：dynamic LCS 的 polylog 结果及其与 LPS 的区别；
+  修正 FNIBT 的 block-edit 界 O(ℓ+log log n) 与 ACPR 的 Õ(√n)（仅适用于 LCS
+  两串中只编辑一串）表述。
+- §valid 更新：旧 count-based canon 在 6000 次重叠试验中的失败数，由不可复现的
+  1137 改为可复现的 810；`run_fast_audit.py` 现在同时运行非重叠与重叠 canon，
+  并在任何检查失败时非零退出；补充 `audit_core.py`、`audit_depth_canon.py`
+  等脚本的说明。
+- `space_accounting.py` 计入 `make_string`；`treap_full_verify.canon` 去掉
+  O(|set|) 的 `_in_pieces` 断言，改为依赖调用方“union 恰好等于真实集合”的保证。
+- 新增 Remark 12：O(N log N) 空间、O(log³ N) 摊还的周期性重建 GKK 实例方向；
+  严格证明尚未完成，因此只作为方向陈述，不作为定理。
+- 当前 PDF 为 12 页（V4.9 为 10 页；增加的是四段伪代码、相关工作修订和
+  空间 Remark）。为压缩到 12 页，V5.0 采用 0.9in 页边距，Algorithms 3/4 用
+  `\footnotesize`，参考文献用 `\footnotesize` 并压缩条目间距；内容未删减。
+
 ## V1（2026-11，初版）
 
 > We study the dynamic longest palindromic substring (LPS) problem under point update,
@@ -62,4 +89,5 @@ V4 重写：主结论改为在 GKK 持久字符串集合这一黑盒下的全操
 - 新增相关工作与文献归属：dyadic AP、周期族 LCE、跨界分解均为已知技术。
 - 修正 `remark` 环境未声明、缺少 `fontenc` 导致 `\k{a}` 无法编译的问题。
 
-详见 `paper/main.tex`（V4.9）第 2 节的"我们的增量"一段。
+详见 V4.9 的存档版本；当前 `paper/main.tex` 已由 V5.0 取代，第 2 节"我们的增量"
+一段沿用 V4.9 的表述并补入 V5.0 修订。

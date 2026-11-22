@@ -2,9 +2,11 @@
 
 Two quantities are measured, both of which the space proof relies on.
 
-(A) String-creating collection calls per operation.  Only concat and split
-    create persistent strings; LCP is a query and, by GKK appendix A, can
-    revert the cells it touches, so it costs no space.  The proof claims
+(A) String-creating collection calls per operation.  Both split/concat and
+    make_string create persistent strings; insertions and replacements issue
+    one length-one make_string each.  LCP is a query (read-only in the GKK
+    construction) and is not charged; even charging O(log N) per LCP would
+    change only the constant in the O(log^3 N) bound.  The proof claims
     O(log^2 N) creating calls per operation, hence O(log^3 N) space per
     operation since each call runs in O(log N) time.
 
@@ -80,8 +82,9 @@ def measure(n0, nops, seed, kind='rand2'):
             l, r = sorted(rnd.sample(range(n + 1), 2))
             if r > l:
                 root, _ = T.op_query(root, l, r)
-        # only split and concat create persistent strings
-        per_op_create.append(T.CNT['split'] + T.CNT['concat'])
+        # split, concat and make_string all create persistent strings
+        per_op_create.append(T.CNT['split'] + T.CNT['concat']
+                             + T.CNT['make_string'])
     acc = [0, 0]
     node_triples(root, acc)
     return max(per_op_create), sum(per_op_create) / len(per_op_create), acc[0], acc[1], len(ref)

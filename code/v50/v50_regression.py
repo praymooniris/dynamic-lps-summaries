@@ -1,7 +1,7 @@
-﻿"""Regression checks for the two proof gaps closed in V4.9.
+﻿"""Regression checks for the two proof gaps closed in V4.9 and kept in V5.0.
 
 The fragment-count check that used to live here was removed together with the
-handle-free space version it belonged to.
+handle-free space version it belonged to; it is no longer part of V5.0.
 
 (1) d = 0 is not an AP member.  The crossing maximum C_L must include it.
     Example from the review: A = "ab", B = "bc", LP("abbc") = 2 comes only
@@ -12,10 +12,7 @@ handle-free space version it belonged to.
 (2) Singleton APs.  Lemma family needs two members.  We count how often a
     merge meets a singleton AP and check the singleton path is exact.
 
-(3) Largest fragment list per operation type, against the table:
-    final lists have <= 3,3,2,3,4,1 fragments; intermediates <= final + 1.
-
-Run:  python v49_regression.py   (from the code directory)
+Run:  python v50_regression.py   (from the code directory)
 """
 import itertools
 import random
@@ -99,4 +96,4 @@ def check_singletons():
 if __name__ == '__main__':
     check_d0()
     check_singletons()
-    print("V4.9 regression: OK")
+    print("V5.0 regression: OK")
