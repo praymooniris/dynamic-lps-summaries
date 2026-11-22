@@ -1,7 +1,7 @@
 """
-End-to-end verification of the full dynamic palindrome summary (V5.0).
+End-to-end verification of the full dynamic palindrome summary (V5.1).
 
-Architecture under test (paper V5.0, Sections 3--5):
+Architecture under test (paper V5.1, Sections 3--5):
   * a treap; every node stores a summary Sm = (n, F, R, PS, PP, LP) where
       F, R   : handles of the node's string and of its reverse
       PS, PP : palindromic suffix / prefix length sets, as canonical AP triples

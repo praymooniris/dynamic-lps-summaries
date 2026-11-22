@@ -1,4 +1,4 @@
-"""Fast audit used by the paper's reproducibility section (V5.0).
+"""Fast audit used by the paper's reproducibility section (V5.1).
 
 Checks (I) the Cartesian invariant, (II) the depth distribution, and (III) the
 canonicalisation on BOTH non-overlapping and overlapping legal covers.  Any

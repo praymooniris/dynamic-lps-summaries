@@ -3,16 +3,39 @@
 仓库中只保留最新版正文 `paper/main.tex` 与 `paper/paper.pdf`。早期版本的正文、
 证明笔记和旧实现已移出仓库，本文件保留它们的摘要，以便追溯结论的演变。
 
-## V5.0（2026-11-22，当前版本）
+## V5.1（2026-11-22，当前版本）
+
+数学内容与主结论保持 V5.0 不变；V5.1 是对审查意见的修正：
+
+- 修正 Algorithm 3：`Info` 的 singleton 记录明确为 `(a, ℓ₀)`；`FilterVar`
+  使用 `first(A)`；`FiveCandidates` 增加 singleton 分支，返回
+  `a + 2 min(m-a, n, ℓ₀)`。V5.0 伪代码对 singleton 访问了不存在的 `e/g/a`；
+  回归测试显示约 95.9% 的 AP 访问是 singleton。
+- 修正 Remark 12 的单位：重建工作是 `O(N log² N)` 时间
+  （`O(N log N)` 次 collection 调用），不是 `O(N log² N)` 次 collection 调用。
+- 空间证明改为保守地按 `O(log N)`/LCP 计费；GKK App A 说明 query 的修改可以
+  记录并回滚，因此不再依赖“LCP 一定只读”的实现细节。
+- §5 补充深度事件的显式 union bound：`N^{O(1)}` 个中间语义序列，均不依赖优先级。
+- §valid 改为精确描述 `treap_full_verify.py` 的抽样全节点检查，加入
+  `audit_merge_pipeline.py`，并把 `mirror_*` 标注为辅助/旧模型实验。
+- 修正 `find_canon_bug.py`（真正调用旧 canon，报告 810 个反例）、
+  `audit_depth_canon.py` 的 849→810 注释，以及 `versions.md` 中关于 GKK query
+  回滚的旧表述；Algorithm 4 补上 singleton piece 的跳过条件。
+- 代码目录改为 `code/v51/`，回归脚本改为 `v51_regression.py`。
+- 为容纳上述增补，页边距改为 0.85in，§valid 用 `\small`；仍为 12 页，
+  编译无 overfull/underfull/undefined 警告。
+
+## V5.0（2026-11-22，历史版本）
 
 V4.9 的数学内容与主结论保持不变；V5.0 是表述、可复现性与排版修订：
 
 - 版本号统一为 V5.0；代码目录改为 `code/v50/`，回归脚本改名为
   `v50_regression.py`，构造测试改名为 `constructed_verify.py`。
-- 修正空间证明的引用：GKK App A 只保证一次 update 的 O(τ) 空间，并未声明 query
-  可回滚。V5.0 改为“LCP 可实现为只读遍历；若不依赖该实现细节，按 O(log N)/LCP
-  记账，结论不变”。`spacetot` 补上最终 Treap 的 O(n log N) 记录（被 q log³ N
-  支配）；词 RAM 明确为带乘法，并显式说明字长常数。
+- 修正空间证明的引用：GKK App A 只保证一次 update 的 O(τ) 空间，并未在这里展开
+  query 的内存细节。V5.0 采用“LCP 可实现为只读遍历；若不依赖该实现细节，按
+  O(log N)/LCP 记账，结论不变”的写法；V5.1 进一步明确 GKK 的 query 修改可以记录
+  并回滚，并直接采用保守的 O(log N)/LCP 计费。`spacetot` 补上最终 Treap 的
+  O(n log N) 记录（被 q log³ N 支配）；词 RAM 明确为带乘法，并显式说明字长常数。
 - 新增 Algorithms 1–4：`MergeSummaries`、`SuffixMerge`、
   `Info`/`FilterK`/`FilterVar`/`FiveCandidates`、`Canon`。
 - 相关工作补 CGP 2020（ICALP）：dynamic LCS 的 polylog 结果及其与 LPS 的区别；
@@ -89,5 +112,5 @@ V4 重写：主结论改为在 GKK 持久字符串集合这一黑盒下的全操
 - 新增相关工作与文献归属：dyadic AP、周期族 LCE、跨界分解均为已知技术。
 - 修正 `remark` 环境未声明、缺少 `fontenc` 导致 `\k{a}` 无法编译的问题。
 
-详见 V4.9 的存档版本；当前 `paper/main.tex` 已由 V5.0 取代，第 2 节"我们的增量"
-一段沿用 V4.9 的表述并补入 V5.0 修订。
+详见 V4.9 的存档版本；当前 `paper/main.tex` 已由 V5.1 取代，第 2 节"我们的增量"
+一段沿用 V4.9 的表述并补入 V5.0/V5.1 修订。

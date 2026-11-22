@@ -1,7 +1,7 @@
 ﻿\documentclass[11pt]{article}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
-\usepackage[margin=0.9in]{geometry}
+\usepackage[margin=0.85in]{geometry}
 \usepackage{amsmath,amssymb,amsthm,booktabs,hyperref}
 \usepackage{algorithm,algpseudocode}
 \usepackage{float}
@@ -12,7 +12,7 @@
 \newtheorem{lemma}[theorem]{Lemma}
 \theoremstyle{remark}
 \newtheorem{remark}[theorem]{Remark}
-\title{Dynamic Longest Palindromic Substring via Mergeable Summaries\\V5.0: Full Operation Set in $O(\log^3 N)$}
+\title{Dynamic Longest Palindromic Substring via Mergeable Summaries\\V5.1: Full Operation Set in $O(\log^3 N)$}
 \author{Chengde Liu}
 \date{November 22, 2026}
 \begin{document}\maketitle
@@ -57,7 +57,7 @@ Relative to these, our operation set is wider: besides substitution, insertion a
 \item \emph{Lemmas~\ref{filters}, \ref{five} and~\ref{canon}} are bookkeeping on top of the above: which members of an AP survive a threshold, where a unimodal function on an AP is maximised, and how to recover the canonical dyadic form without expanding an AP. We have not found Lemma~\ref{canon} stated elsewhere; it is elementary.
 \end{itemize}
 
-\paragraph{Our increment.} What we claim as new is the assembly, not the ingredients: (i) the mirror-pair node summary, which stores handles of a node's string and its reverse, so that range reversal becomes a lazy flag and no reversal primitive is needed from the dynamic-string black box (Section~\ref{sec:merge}); (ii) the resulting $O(\log^3N)$ bound for the full operation set including reversal and cyclic shift, with the black-box hypotheses discharged explicitly (Sections~\ref{sec:model} and~\ref{sec:depth}); (iii) the treap-depth argument under range reversal, where priorities travel with elements whose positions the operations permute (Section~\ref{sec:depth}); (iv) the explicit space accounting against the same black box, charged per operation (Section~\ref{sec:space}).
+\paragraph{Our increment.} What we claim as new is the assembly, not the ingredients: (i) the mirror-pair node summary, which stores handles of a node's string and its reverse, so that range reversal becomes a lazy flag and no reversal primitive is needed from the dynamic-string black box (Section~\ref{sec:merge}); (ii) the resulting $O(\log^3N)$ bound for the full operation set including reversal and cyclic shift, with the black-box hypotheses discharged explicitly (Sections~\ref{sec:model} and~\ref{sec:depth}); (iii) the treap-depth argument under range reversal, where priorities travel with elements whose positions the operations permute (Section~\ref{sec:depth}); (iv) the explicit space accounting against the same black box, charged per operation (Section~\ref{sec:space}). The mirror-pair is a natural augmentation rather than a new primitive, and we do not claim the individual combinatorial ingredients as new; to our knowledge this is the first polylogarithmic-time fully dynamic LPS structure for the stated operation set with interval queries and exact answers. Its price is an oblivious-adversary, high-probability analysis and a space bound that grows with the number of operations.
 
 \section{Palindrome combinatorics}\label{sec:comb}
 For a string $X$, write $P_s(X)$ and $P_p(X)$ for its positive palindromic suffix and prefix lengths, and $\operatorname{LP}(X)$ for its longest palindromic substring length. We store an AP as $(a,p,t)$ with members $a+ip$ for $0\le i<t$; a singleton has step zero.
@@ -215,7 +215,8 @@ $d\mapsto K-d$, and to $d\mapsto d+K$, respectively.
 \begin{algorithmic}[1]
 \Function{Info}{$U,V,A=(a,p,t)$}
   \If{$t=1$}
-    \State \Return a singleton record holding $\ell_0=\texttt{LCP}(U[a..],V)$
+    \State \Return the singleton record $(a,\ell_0)$ with
+           $\ell_0=\texttt{LCP}(U[a..],V)$
   \EndIf
   \State $e\gets p+\texttt{LCP}(U[p..],U)$
   \State $h\gets\texttt{LCP}(U[a..],V)$
@@ -238,7 +239,7 @@ $d\mapsto K-d$, and to $d\mapsto d+K$, respectively.
 \EndFunction
 \Function{FilterVar}{$I,A,L$}
   \If{$I$ is a singleton}
-    \State \Return $A$ if $I.\ell_0\ge L-I.a$, else $\emptyset$
+    \State \Return $A$ if $I.\ell_0\ge L-\text{first}(A)$, else $\emptyset$
   \EndIf
   \If{$I.e\ge L$}
     \State \Return $A\cap[L-I.g,\infty)$
@@ -247,6 +248,10 @@ $d\mapsto K-d$, and to $d\mapsto d+K$, respectively.
   \State \Return $\{d\}$ if $d\in A$ and $I.\ell(d)\ge L-d$, else $\emptyset$
 \EndFunction
 \Function{FiveCandidates}{$I,A,m,n$}
+  \If{$I$ is a singleton}
+    \State $a\gets\text{first}(A)$
+    \State \Return $a+2\min(m-a,n,I.\ell_0)$
+  \EndIf
   \State $x\gets I.e-\min(n,I.g)$
   \State $C\gets\{\text{first}(A),\text{last}(A)\}\cup
          \{\text{AP elements adjacent to }x\}\cup(\{I.e-I.g\}\cap A)$
@@ -269,7 +274,8 @@ $d\mapsto K-d$, and to $d\mapsto d+K$, respectively.
   \If{$a=b$}
     \State $out\gets out\cup\{(a,0,1)\}$
   \Else
-    \State $z\gets\min\{\text{smallest element of }B\text{ that exceeds }a:B\in pieces\}$
+    \State $z\gets\min\{\text{smallest element of }B\text{ that exceeds }a:
+         B\in pieces,\ B\text{ has such an element}\}$
     \State $p\gets z-a$;\quad $t\gets (b-a)/p+1$
     \State $out\gets out\cup\{(a,p,t)\}$
   \EndIf
@@ -281,7 +287,7 @@ $d\mapsto K-d$, and to $d\mapsto d+K$, respectively.
 A node summary stores $P_s,P_p,\operatorname{LP}$ and persistent handles for the string and its reverse. Each set contains $O(\log N)$ APs. Merging two summaries therefore uses $O(\log N)$ collection LCP/split calls and $O(\log^2N)$ arithmetic operations; the handles for $AB$ and its reverse use two concatenations. Reversal swaps the handles and the two AP sets, while $\operatorname{LP}$ is unchanged.
 
 \section{Treap depth and the operation bound}\label{sec:depth}
-Logically push lazy reversal flags before interpreting the tree. Mirroring a subtree reverses its in-order sequence while preserving heap order, so the logical tree remains the unique Cartesian tree of the current sequence and attached distinct priorities. Split and merge preserve the same invariant. Although merge compares priorities, its \emph{semantic sequence} is determined by its input sequences, and split's semantic result is determined by the requested rank. Induction therefore shows that an oblivious sequence of positional edits permutes and selects element identities independently of their priorities. At every externally specified time, the priorities in the current order are independent and identically distributed, so the usual random-treap height bound applies. Partial trees arising from rank splits are Cartesian trees on fixed subintervals of that order; a constant number of cuts and joins per operation requires a simultaneous bound for these and the fixed intermediate semantic sequences, obtained by a union bound over polynomially many such sequences. The same reasoning does not cover a priority-adaptive choice of operations.
+Logically push lazy reversal flags before interpreting the tree. Mirroring a subtree reverses its in-order sequence while preserving heap order, so the logical tree remains the unique Cartesian tree of the current sequence and attached distinct priorities. Split and merge preserve the same invariant. Although merge compares priorities, its \emph{semantic sequence} is determined by its input sequences, and split's semantic result is determined by the requested rank. Induction therefore shows that an oblivious sequence of positional edits permutes and selects element identities independently of their priorities. At every externally specified time, the priorities in the current order are independent and identically distributed, so the usual random-treap height bound applies. Partial trees arising from rank splits are Cartesian trees on fixed subintervals of that order; a constant number of cuts and joins per operation requires a simultaneous bound for these and the fixed intermediate semantic sequences. More explicitly, a Cartesian tree on a fixed sequence of length at most $N$ with distinct i.i.d.\ priorities has height at most $c\log N$ with probability at least $1-N^{-\alpha}$ for suitable constants $c,\alpha$; an execution of at most $N^c$ operations has $N^{O(1)}$ intermediate semantic sequences, and none of them depends on the priorities. A union bound over these sequences therefore gives the depth event with probability $1-O(N^{-k})$ for any fixed $k$, after enlarging $\alpha$ if necessary. The same reasoning does not cover a priority-adaptive choice of operations.
 
 \begin{theorem}[Operation bound]\label{opbound}
 Work in the model of Section~\ref{sec:model}: $N$ bounds every string length, the execution has at most $N^c$ operations with $c$ fixed in advance, the adversary is oblivious, and the collection of~\cite{GKK} is used persistently with its constant $c'$ chosen as in (F1). Let $\mathcal E$ be the intersection of the no-failure event $\overline{\mathcal F}$ of (F1) and the depth event $\mathcal D$ of Section~\ref{sec:depth}. Then $\Pr[\mathcal E]\ge1-O(N^{-k})$ for any constant $k$ fixed in advance, and on $\mathcal E$ every one of the listed operations costs $O(\log^3N)$ time in the worst case and increases the space by $O(\log^3N)$ words. Answers are always exact, on $\mathcal E$ and off it.
@@ -302,7 +308,7 @@ The collection of~\cite{GKK} is persistent and reclaims nothing, and~\cite[App.~
 On the event $\mathcal E$ of Theorem~\ref{opbound}, one operation increases the space by $O(\log^3N)$ words. Separately, the treap's own records occupy $O(n\log N)$ words when the current length is $n$; this counts the summaries and the handle identifiers held in the nodes, and not the collection's internal representation of the strings those handles name, which is covered by the cumulative charge and never reclaimed.
 \end{lemma}
 \begin{proof}
-By~\cite[App.~A]{GKK} an update taking time $\tau$ increases the space by $O(\tau)$. The \texttt{LCP} query of (G2) can be implemented as a read-only traversal of the parse and level-ancestor structures of~\cite[\S8]{GKK}: it creates no new signature and appends no string to the collection, so it leaves no permanent trace. If one prefers not to rely on this implementation detail, charging $O(\log N)$ words per \texttt{LCP} query changes nothing: a merge issues $O(\log N)$ such queries, so the per-operation charge below merely gains a constant factor. Hence \texttt{LCP} contributes no asymptotic space, and every update, \texttt{make\_string} included, consumes space proportional to its own time.
+By~\cite[App.~A]{GKK} an update taking time $\tau$ increases the space by $O(\tau)$. For the \texttt{LCP} query of (G2) we use the conservative charge of $O(\log N)$ words per query: \cite[App.~A]{GKK} notes that a query may modify memory but that the modified cells can be recorded and reverted, and a read-only implementation of \texttt{LCP} only improves the constant. A merge issues $O(\log N)$ such queries, so this charge adds only a constant factor to the per-operation bound. Every update, \texttt{make\_string} included, consumes space proportional to its own time.
 
 On $\mathcal E$ an operation visits $O(\log N)$ nodes and each merge issues $O(\log N)$ \texttt{split} and \texttt{concat} calls, each costing $O(\log N)$ time by (F2) and therefore $O(\log N)$ words. An insertion or a replacement adds one \texttt{make\_string} of length one, costing $O(\log N)$. Multiplying gives $O(\log^3N)$ words for the operation.
 
@@ -326,15 +332,16 @@ The bound of Theorem~\ref{spacetot} grows with $q$, and we do not claim better i
 \end{remark}
 
 \begin{remark}[A route to $O(N\log N)$ space, amortised]\label{amortspace}
-We do have an approach to $O(N\log N)$ words with $O(\log^3N)$ amortised time per operation: after a suitably chosen number of operations (of order $N$), discard the collection and rebuild a fresh instance from the current text and its reverse. The rebuild charges the residue of the old instance to the phase, and the live structure is intended to stay at $O(N\log N)$ words; the rebuild work is $O(N\log^2N)$ collection operations, i.e.\ $O(\log^2N)$ per operation when amortised over $\Theta(N)$ operations, which is below the $O(\log^3N)$ merge cost. What is not yet complete is a rigorous accounting of (i) the space occupied during a phase, (ii) the exact rebuild frequency and its effect on the per-operation time bound, and (iii) the interaction of the rebuild with the failure/restart wrapper of (F3). We therefore state this as a direction, not a theorem; Theorem~\ref{opbound}, Lemma~\ref{spaceop} and Theorem~\ref{spacetot} remain the only space and time claims of this version.
+We do have an approach to $O(N\log N)$ words with $O(\log^3N)$ amortised time per operation: after a suitably chosen number of operations (of order $N$), discard the collection and rebuild a fresh instance from the current text and its reverse. The rebuild charges the residue of the old instance to the phase, and the live structure is intended to stay at $O(N\log N)$ words. Building the fresh collection takes $O(N)$ collection calls; rebuilding the treap summaries takes $O(N\log N)$ collection calls, each of $O(\log N)$ time, so the rebuild costs $O(N\log^2N)$ time, i.e.\ $O(\log^2N)$ amortised time per operation over $\Theta(N)$ operations, below the $O(\log^3N)$ merge cost. What is not yet complete is a rigorous accounting of (i) the space occupied during a phase, (ii) the exact rebuild frequency and its effect on the per-operation time bound, and (iii) the interaction of the rebuild with the failure/restart wrapper of (F3). We therefore state this as a direction, not a theorem; Theorem~\ref{opbound}, Lemma~\ref{spaceop} and Theorem~\ref{spacetot} remain the only space and time claims of this version.
 \end{remark}
 
 \section{Reproducible validation}\label{sec:valid}
-The programs are in \texttt{code/v50/} and use only the Python standard library. From that directory run, with \texttt{python}: \texttt{treap\_full\_verify.py}, \texttt{run\_fast\_audit.py}, \texttt{constructed\_verify.py}, \texttt{v50\_regression.py}, \texttt{audit\_core.py}, \texttt{audit\_depth\_canon.py} and \texttt{space\_accounting.py}.
+\small
+The programs are in \texttt{code/v51/} and use only the Python standard library. From that directory run, with \texttt{python}: \texttt{treap\_full\_verify.py}, \texttt{run\_fast\_audit.py}, \texttt{constructed\_verify.py}, \texttt{v51\_regression.py}, \texttt{audit\_core.py}, \texttt{audit\_depth\_canon.py}, \texttt{audit\_merge\_pipeline.py} and \texttt{space\_accounting.py}.
 
-\texttt{treap\_full\_verify.py} performs 300 runs of 60 mixed operations on random and structured strings, comparing root strings, reversals, interval queries and every stored node summary against brute force. \texttt{constructed\_verify.py} runs unary, alternating, short-periodic, period-break, near-palindromic, many-border, two-marker and recursive strings, and the empty string, through every operation and interval query, comparing each against an independent direct palindrome enumeration and checking all stored node summaries. \texttt{v50\_regression.py} tests the $d=0$ term of Lemma~\ref{crossmax} on the example above, and over all binary strings of lengths $1$ to $6$ it checks the merge against brute force; it also instruments singleton AP visits. The canonicalisation of Lemma~\ref{canon} is tested on random legal covers that may overlap: the repaired routine agrees with the brute-force set on all $6000$ trials, while the earlier count-based routine, which mistook a doubly covered element for a hole, failed on $810$ of the same trials; the comparison is reproduced by \texttt{audit\_old\_canon\_overlap} in \texttt{audit\_depth\_canon.py}. \texttt{run\_fast\_audit.py} runs the Cartesian and depth checks and both the non-overlapping and overlapping canon tests, and exits nonzero on any failure. \texttt{audit\_core.py} independently audits Lemmas~\ref{dyadic} and~\ref{family}, the filters, the five candidates and the merge table. \texttt{space\_accounting.py} counts the space-consuming collection calls (\texttt{split}, \texttt{concat} and \texttt{make\_string}) per operation, which is the quantity Lemma~\ref{spaceop} charges, and the AP triples stored over all nodes, for $n$ from $64$ to $2048$, and asserts Lemma~\ref{dyadic}'s per-node bound.
+\texttt{treap\_full\_verify.py} performs 300 runs of 60 mixed operations on random and structured strings. Root strings, reversal handles, interval queries and root LP values are checked against brute force at every step; complete node-by-node summaries are checked every 10 steps while the current length is at most 64. \texttt{constructed\_verify.py} runs unary, alternating, short-periodic, period-break, near-palindromic, many-border, two-marker and recursive strings, and the empty string, through every operation and interval query, comparing each against an independent direct palindrome enumeration and checking all stored node summaries. \texttt{v51\_regression.py} tests the $d=0$ term of Lemma~\ref{crossmax} on the example above, and over all binary strings of lengths $1$ to $6$ it checks the merge against brute force; it also instruments singleton AP visits. The canonicalisation of Lemma~\ref{canon} is tested on random legal covers that may overlap: the repaired routine agrees with the brute-force set on all $6000$ trials, while the earlier count-based routine, which mistook a doubly covered element for a hole, failed on $810$ of the same trials; the comparison is reproduced by \texttt{audit\_old\_canon\_overlap} in \texttt{audit\_depth\_canon.py}. \texttt{run\_fast\_audit.py} runs the Cartesian and depth checks and both the non-overlapping and overlapping canon tests, and exits nonzero on any failure. \texttt{audit\_core.py} independently audits Lemmas~\ref{dyadic} and~\ref{family}, the filters, the five candidates and the merge table. \texttt{audit\_merge\_pipeline.py} runs the full PSuf merge using only the Lemma~\ref{dyadic}/\ref{family} filters, with no endpoint formula or IPM query, and compares $29024$ merges against brute force. \texttt{space\_accounting.py} counts the string-creating collection calls (\texttt{split}, \texttt{concat} and \texttt{make\_string}) per operation, which is the quantity Lemma~\ref{spaceop} charges, and the AP triples stored over all nodes, for $n$ from $64$ to $2048$, and asserts Lemma~\ref{dyadic}'s per-node bound.
 
-The string handles in these programs are Python strings and the comparisons are character scans: they validate identities and operations, not the dynamic-string complexity or the space bound. Random tests and special constructions cannot establish a universal proof.
+The four \texttt{mirror\_*.py} programs are auxiliary experiments for a different, ephemeral mirror-closure model; they are not used in the V5.1 algorithm and are not part of the validation of Theorems~\ref{opbound} and~\ref{spacetot}. The string handles in all these programs are Python strings and the comparisons are character scans: they validate identities and operations, not the dynamic-string complexity or the space bound. Random tests and special constructions cannot establish a universal proof.
 \begin{thebibliography}{9}\footnotesize\setlength{\itemsep}{0pt}\setlength{\parsep}{0pt}
 \bibitem{GKK} P. Gawrychowski, A. Karczmarz, T. Kociumaka, J. {\L}\k{a}cki, P. Sankowski, \emph{Optimal Dynamic Strings}, SODA 2018, 1509--1528. Theorem, lemma and section numbers cited here follow arXiv:1511.02612v2.
 \bibitem{AB19} A. Amir, I. Boneh, \emph{Dynamic Palindrome Detection}, arXiv:1906.09732 (2019).

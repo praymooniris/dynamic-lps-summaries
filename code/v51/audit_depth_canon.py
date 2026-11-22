@@ -258,7 +258,7 @@ def old_canon(triples):
 def audit_old_canon_overlap(trials=6000):
     """Old count-based canon on the same overlapping covers; returns
     (checked, failures).  This is a historical measurement, not a test that is
-    expected to pass: with the shipped generator it reports 849 failures."""
+    expected to pass: with the shipped generator it reports 810 failures."""
     rnd = random.Random(31337)
     checked = failures = 0
     for _ in range(trials):

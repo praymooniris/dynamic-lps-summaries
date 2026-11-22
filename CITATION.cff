@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "If you use this work, please cite it as below."
 type: preprint
 title: "Dynamic Longest Palindromic Substring via Mergeable Summaries"
-version: "5.0"
+version: "5.1"
 authors:
   - family-names: "Liu"
     given-names: "Chengde"
