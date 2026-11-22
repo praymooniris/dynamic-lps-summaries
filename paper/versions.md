@@ -22,8 +22,35 @@
   `audit_depth_canon.py` 的 849→810 注释，以及 `versions.md` 中关于 GKK query
   回滚的旧表述；Algorithm 4 补上 singleton piece 的跳过条件。
 - 代码目录改为 `code/v51/`，回归脚本改为 `v51_regression.py`。
-- 为容纳上述增补，页边距改为 0.85in，§valid 用 `\small`；仍为 12 页，
-  编译无 overfull/underfull/undefined 警告。
+- 为容纳上述增补，页边距改为 0.85in，§valid 用 `\small`；V5.1 原文为 12 页，
+  审查后补修（见下）增至 14 页，编译仍无 overfull/underfull/undefined 警告。
+
+### 审查后补修（2026-11-22，同一版本号 V5.1）
+
+- 相关工作：ACPR18 的 fully dynamic LPS 是 `O(√n log^{2.5} n)`（Theorem 5），
+  不是 `Õ(n^{2/3})`；`Õ(√n)` 同时是单侧 LCS 和 LPS 的界。CGP20 是
+  substitutions + insertions + deletions，摊还 `O(log⁷ n)` whp，lower bound
+  带 polynomial-size / amortized / randomized 限定。
+- V4.1 恢复为定理（`Theorem rebuild`）：每 `B=⌈N/log N⌉` 次重建
+  collection+treap，`O(N log² N)` 空间 + `O(log³ N)` 摊还（在 `E'` 上）。
+  补了 checkpoint retry、free/GC 假设、跨 rebuild union bound，并显式计入
+  重建自身 `O(N log² N)` 的 collection 残渣。
+- V4.1′ 撤回：`O(N log N)` + `O(log⁴ N)` 不能由同一重建方法得到，因为重建
+  本身产生 `O(N log² N)` 的 collection 残渣；论文新增 `Remark noNlogN`
+  说明该障碍。
+- V4.2 明确为未证明/放弃：`O(N)` 期望空间需要把 GKK App A 的 query 回滚扩展到
+  `split`/`concat` 事务；黑盒未提供 update 回滚接口。论文新增 `Remark v42`。
+- §5 增加 Lemma（Treap height），引用 Reed 2003 的随机 BST 高度尾界，并写出
+  `N^{O(1)}` 个中间语义序列上的显式 union bound。
+- §6 空间证明补全：LCP 的保守 `O(log N)` 计费、丢弃的 Treap 节点、重试历史、
+  最终 live Treap 的记录；结论不变。
+- 模型明确为 word RAM with multiplication and integer division；Algorithm 3 的
+  singleton 空后缀（`a=|U|`）显式说明为 LCP 0、无调用。
+- `space_accounting.py` 计入 LCP 并报告保守 charge；`audit_merge_pipeline.py`
+  的 AP 记号统一为论文的 `(a,p,t)`（t = 成员数，singleton `(a,0,1)`）；
+  `audit_depth_canon.py` 的 docstring 去掉不可复现的旧 gcd 反例；
+  `LICENSE-docs.md` 改为 V5.1。
+- 当前 PDF 为 14 页，513112 字节；编译无 overfull/underfull/undefined。
 
 ## V5.0（2026-11-22，历史版本）
 

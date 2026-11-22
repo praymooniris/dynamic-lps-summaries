@@ -20,10 +20,12 @@ abstract: >-
   simultaneously over a polynomially long execution with high probability,
   against an oblivious adversary, and answers are exact. On the high-probability
   event, each operation increases the space by O(log^3 N) words, so q operations
-  use O(N + n_0 log^2 N + q log^3 N) words; no q-independent bound is claimed.
-  We also state a direction toward O(N log N) space with O(log^3 N) amortised
-  time via periodic rebuilding of the collection; its rigorous accounting is
-  not yet complete, so it is not claimed as a theorem.
+  use O(N + n_0 log^2 N + q log^3 N) words. With amortised time we also prove a
+  q-independent bound: rebuilding every Theta(N/log N) operations gives
+  O(N log^2 N) words and O(log^3 N) amortised time per operation, assuming
+  discarded instances are deallocated. The stronger O(N log N) and O(N) variants
+  would require handle-free summaries with update rollback, which the black box
+  does not provide; they are not claimed.
 keywords:
   - dynamic strings
   - longest palindromic substring

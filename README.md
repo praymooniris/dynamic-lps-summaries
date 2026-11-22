@@ -1,13 +1,15 @@
 # Dynamic Longest Palindromic Substring via Mergeable Palindrome Summaries
 
 **V5.1**（2026-11-22）：在 V5.0 的数学内容与主结论不变的前提下，修正伪代码的
-singleton 分支、Remark 12 的单位、验证覆盖度与辅助文件中的陈旧表述。
+singleton 分支、相关工作（ACPR18/CGP20）、验证覆盖度与辅助文件中的陈旧表述，
+补全深度/空间证明，并把 V4.1 恢复为 q-independent 空间定理（摊还时间）；
+V4.1′ 因重建自身 O(N log²) 残渣撤回，V4.2 明确为未证明/放弃。
 
 全操作集 `O(log³ N)`（高概率，oblivious 对手），操作包括字符替换、插入、删除、
 区间翻转、区间循环移位和区间最长回文长度查询。答案始终精确；随机性只影响运行时间。
 
 - 论文源文件：[`paper/main.tex`](paper/main.tex)
-- 编译好的 PDF：[`paper/paper.pdf`](paper/paper.pdf)（12 页，pdfLaTeX 编译；
+- 编译好的 PDF：[`paper/paper.pdf`](paper/paper.pdf)（14 页，pdfLaTeX 编译；
   V4.9 为 10 页）
 - 版本历史：[`paper/versions.md`](paper/versions.md)
 - 验证程序：[`code/v51/`](code/v51/)
@@ -18,13 +20,14 @@ singleton 分支、Remark 12 的单位、验证覆盖度与辅助文件中的陈
 集合为黑盒。每个 Treap 节点同时存子串与其反转的句柄，因此区间翻转退化为惰性标记，
 不需要底层结构提供翻转原语。
 
-V5.1 保留 V5.0 的唯一严格成立版本：
+V5.1 的严格版本（V5.0 最坏情形 + V4.1 摊还 q-independent）：
 
 | 量 | 界 | 条件 |
 |---|---|---|
 | 每操作时间 | `O(log³ N)` 最坏 | 在事件 `E` 上 |
 | 每操作新增空间 | `O(log³ N)` 字 | 在事件 `E` 上 |
 | `q` 次操作总空间 | `O(N + n₀ log² N + q log³ N)` 字 | 在事件 `E` 上 |
+| q-independent（摊还） | `O(N log² N)` 字 | 每 `B=⌈N/log N⌉` 次重建，在事件 `E'` 上 |
 | 答案 | 始终精确 | 无条件 |
 
 这里 `E` 是“底层集合无调用失败”与“树深 `O(log N)`”两个事件的交，
@@ -32,10 +35,16 @@ V5.1 保留 V5.0 的唯一严格成立版本：
 执行长度至多 `N^c` 且 `c` 事先固定（否则集合的总展开长度与 `t` 不再是多项式，
 GKK 的 `O(log N)` 单次调用界失效）；对手必须是 oblivious。
 
-V5.1 在论文空间一节的 Remark 中保留了一个方向：以一定步数（Θ(N) 量级）为周期重建
-GKK 实例，目标是 `O(N log N)` 空间与 `O(log³ N)` 摊还时间。该方向的严格空间/重建
-/失败重放核算尚未完成，因此**只作为方向声明，不作为定理**；本版本的严格空间界仍是
-上表中的 `O(N + n₀ log² N + q log³ N)`。原 V4.1/V4.1′/V4.2 仍不在本版本中。
+V5.1 现在证明 V4.1：每 `B=⌈N/log N⌉` 次操作重建 collection 与 treap，空间
+`O(N log² N)` 字，摊还 `O(log³ N)`/操作（在事件 `E'` 上；假设被丢弃的实例可被
+释放/GC）。证明补上了 checkpoint retry、跨 rebuild 的 union bound，并显式计入
+重建自身产生的 `O(N log² N)` collection 残渣。
+
+V4.1′ 的 `O(N log N)` + `O(log⁴ N)` **不能按同一方法成立**：重建本身有
+`O(N log N)` 个 collection 调用、每个 `O(log N)` 字，即 `O(N log² N)` 残渣，超过
+`O(N log N)`。V4.2 的 `O(N)` 期望空间需要把 GKK App A 的 query 回滚扩展到
+`split`/`concat` 事务；黑盒未提供 update 回滚接口，因此**未证明、放弃**。严格的最坏
+情形空间界仍是上表中的 `O(N + n₀ log² N + q log³ N)`。
 
 ## V5.1 修订摘要
 
@@ -52,6 +61,22 @@ GKK 实例，目标是 `O(N log N)` 空间与 `O(log³ N)` 摊还时间。该方
 - 修正 `find_canon_bug.py`（现在真正调用旧 canon）、`audit_depth_canon.py`
   的 849→810 注释，以及 `versions.md` 中关于 GKK query 回滚的表述。
 - 伪代码补上 `Canon` 中 singleton piece 的跳过条件。
+- 审查后补修：ACPR18 的 fully dynamic LPS 是 `O(√n log^{2.5} n)`（Theorem 5），
+  不是 `Õ(n^{2/3})`；`Õ(√n)` 同时是单侧 LCS 和 LPS 的界。CGP20 是
+  substitutions + insertions + deletions，摊还 `O(log⁷ n)` whp，lower bound
+  带 polynomial-size / amortized / randomized 限定。
+- 审查后补修：Remark 12 改为空间-时间 trade-off（见上），不再声称
+  `O(N log N)` + `O(log³ N)`。§5 增加 Treap height lemma（Reed 2003）与显式
+  union bound；§6 补全 LCP 计费、丢弃节点、重试历史。
+- 审查后补修：`space_accounting.py` 计入 LCP；`audit_merge_pipeline.py` 的 AP
+  记号统一为论文的 `(a,p,t)`；`LICENSE-docs.md` 改为 V5.1。
+- 审查后补修：恢复 V4.1 为定理（`Theorem rebuild`）：`O(N log² N)` 空间 +
+  `O(log³ N)` 摊还，q-independent；补 checkpoint retry、free/GC 假设、跨 rebuild
+  union bound 与重建自身 `O(N log² N)` collection 残渣。
+- 审查后补修：撤回 V4.1′（`O(N log N)` + `O(log⁴ N)`）：重建自身 `O(N log² N)`
+  残渣使其不成立；论文 `Remark noNlogN` 记录该障碍。
+- 审查后补修：V4.2（`O(N)` 期望）明确为未证明/放弃：transaction 需要 update
+  回滚接口，GKK 未提供；论文 `Remark v42` 记录该缺口。
 
 ## 组合部分的归属
 
@@ -74,7 +99,7 @@ python v51_regression.py           # d=0 项、singleton AP
 python audit_core.py               # Lemma 1/2、filter、五候选、合并表的独立审计
 python audit_depth_canon.py        # 完整深度分布、canon、旧 canon 对照
 python audit_merge_pipeline.py     # 只用 Lemma 1/2 filter 的合并管线
-python space_accounting.py         # split/concat/make_string 计数与 AP 三元组数
+python space_accounting.py         # split/concat/make_string + LCP 计数、保守 O(logN)/调用计费与 AP 三元组数
 python find_canon_bug.py           # 探索性工具：打印旧 canon 的 810 个反例
 ```
 

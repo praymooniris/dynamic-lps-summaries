@@ -9,6 +9,10 @@ i.e. without the E_L/E_R endpoint formula and without any IPM query.
 
 It checks the merged summaries against brute force and records the number of
 LCE calls per merge, so we can see whether it is O(#APs) = O(log n).
+
+AP notation matches the paper: (a, p, t) has t members a, a+p, ..., a+(t-1)p;
+a singleton is (a, 0, 1).  (Do not confuse this with an older internal
+count-minus-one convention that appeared in drafts of this script.)
 """
 import itertools, random, sys
 
@@ -30,23 +34,23 @@ def dyadic_aps(ds):
     mx = ds[-1] if ds else 0
     while L <= mx:
         grp = [d for d in ds if L <= d < 2*L]
-        if len(grp) == 1: out.append((grp[0], 1, 0))
+        if len(grp) == 1: out.append((grp[0], 0, 1))
         elif len(grp) >= 2:
             p = grp[1]-grp[0]
-            out.append((grp[0], p, len(grp)-1))
+            out.append((grp[0], p, len(grp)))
         L *= 2
     return out
 
 def ap_elems(ap):
     a, p, t = ap
-    return [a + k*p for k in range(t+1)]
+    return [a + k*p for k in range(t)]
 
 def filt(C, U, V, ap, mode, K):
     """mode 'K': keep d with l(d) >= K ; mode 'V': keep d with l(d) >= K-d.
     Uses Lemma 2: O(1) LCE per AP."""
     d0, p, t = ap
     ds = ap_elems(ap)
-    if t == 0:                       # singleton: one direct LCE
+    if t == 1:                       # singleton: one direct LCE
         l = C.lcp(U[d0:], V)
         ok = (l >= K) if mode == 'K' else (l >= K-d0)
         return ds if ok else []

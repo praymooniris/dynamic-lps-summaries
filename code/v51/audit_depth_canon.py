@@ -18,8 +18,11 @@ Verification of the two proofs:
      only dyadic ones), with no expansion of APs.  The earlier gcd rule
      gcd(piece steps, piece start differences) is WRONG for the representation
      produced by the merge, because a piece restricted to one element keeps
-     the step of the AP it came from; see find_canon_bug.py for the
-     counterexamples {1,4,7,14} and {1,2,3,8,13}.
+     the step of the AP it came from.  The earlier count-based routine in
+     old_canon is the one used by find_canon_bug.py; it reports 810 failures
+     on the shipped generator.  (The older gcd-based counterexamples
+     {1,4,7,14} and {1,2,3,8,13} belonged to a routine no longer in the
+     repository.)
 """
 import os, random, math, sys
 from math import gcd

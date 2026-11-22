@@ -13,6 +13,6 @@ License text: https://creativecommons.org/licenses/by/4.0/legalcode
 Suggested attribution:
 
 > Chengde Liu, *Dynamic Longest Palindromic Substring via Mergeable Summaries*
-> (V5.0), 2026.
+> (V5.1), 2026.
 
 The code in `code/` is licensed separately under the MIT License; see `LICENSE`.
